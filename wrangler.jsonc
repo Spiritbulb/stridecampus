@@ -1,0 +1,64 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "stridecampus",
+	"main": ".open-next/worker.js",
+	"compatibility_date": "2025-03-01",
+	"compatibility_flags": [
+		"nodejs_compat",
+		"global_fetch_strictly_public"
+	],
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".open-next/assets"
+	},
+	"observability": {
+		"enabled": true
+	},
+	"r2_buckets": [{
+		"binding": "R2",
+		"bucket_name": "stride"
+	}
+	],
+	/**
+	 * Smart Placement
+	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
+	 */
+	// "placement": { "mode": "smart" }
+	/**
+	 * Bindings
+	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
+	 * databases, object storage, AI inference, real-time communication and more.
+	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/
+	 */
+	/**
+	 * Environment Variables
+	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
+	 */
+	"vars": { 
+		"CLOUDFLARE_ACCOUNT_ID" : "a78c24ebd1ecc60a876998765921c445",
+		"CLOUDFLARE_API_TOKEN" : "adg_mkcO0NRTbtRU6B62pw2YAXPfwiXIwngxPVGN",
+		"CLOUDFLARE_R2_ACCESS_KEY_ID": "",
+		"CLOUDFLARE_R2_SECRET_ACCESS_KEY": "",
+		"CLOUDFLARE_R2_BUCKET_NAME": "stride",
+		"NEXT_PUBLIC_SUPABASE_URL": "https://laqocctbodlexjkfpfwh.supabase.co",
+		"NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxhcW9jY3Rib2RsZXhqa2ZwZndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0ODg1ODQsImV4cCI6MjA3MzA2NDU4NH0.fHrHxNNE_GrSN7QUz7Rm-lLW7E4Ym59LF9QfS7F4iHw"
+	}
+	/**
+	 * Note: Use secrets to store sensitive data.
+	 * https://developers.cloudflare.com/workers/configuration/secrets/
+	 */
+	/**
+	 * Static Assets
+	 * https://developers.cloudflare.com/workers/static-assets/binding/
+	 */
+	// "assets": { "directory": "./public/", "binding": "ASSETS" }
+	/**
+	 * Service Bindings (communicate between multiple Workers)
+	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
+	 */
+	// "services": [{ "binding": "MY_SERVICE", "service": "my-service" }]
+}
