@@ -5,11 +5,13 @@ import { uploadFile, uploadYoutubeLink } from '@/utils/r2';
 import { toast } from '@/hooks/use-toast';
 import { validateYouTubeUrl, extractYoutubeVideoId } from './utils';
 
+
 interface UploadModalProps {
   user: User | null;
   onClose: () => void;
   onUploadSuccess: () => void;
 }
+
 
 export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploadSuccess }) => {
   const [isUploading, setIsUploading] = useState(false);
@@ -21,6 +23,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
     tags: '',
     subject: ''
   });
+
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +41,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
     setIsUploading(true);
     
     try {
+      // Use "educational" as default tag if no tags are provided
+      const tagsToSend = uploadForm.tags.trim() || 'educational';
+      
       if (uploadForm.resourceType === 'file') {
         if (!uploadForm.file) {
           toast({
@@ -61,7 +67,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
           uploadForm.file,
           user.id,
           uploadForm.description,
-          uploadForm.tags,
+          tagsToSend,
           uploadForm.subject
         );
         
@@ -87,7 +93,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
           uploadForm.youtubeUrl,
           user.id,
           uploadForm.description,
-          uploadForm.tags,
+          tagsToSend,
           uploadForm.subject
         );
         
@@ -120,6 +126,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
     }
   };
 
+
   return (
     <div className="fixed inset-0 flex backdrop-blur items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
@@ -133,6 +140,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
             <X size={20} />
           </button>
         </div>
+
 
         <form onSubmit={handleUpload} className="space-y-4">
           <div>
@@ -150,6 +158,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
               ))}
             </select>
           </div>
+
 
           {uploadForm.resourceType === 'youtube' ? (
             <div>
@@ -186,6 +195,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
             </div>
           )}
 
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Subject *
@@ -203,6 +213,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
             </select>
           </div>
 
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Description
@@ -216,6 +227,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
             />
           </div>
 
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Tags (comma separated)
@@ -225,9 +237,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
               value={uploadForm.tags}
               onChange={(e) => setUploadForm({...uploadForm, tags: e.target.value})}
               className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f23b36] focus:border-transparent"
-              placeholder="e.g., calculus, exam-prep, chapter-3"
+              placeholder="e.g., calculus, exam-prep, chapter-3 (defaults to 'educational' if empty)"
             />
           </div>
+
 
           <div className="flex gap-3 pt-4">
             <button

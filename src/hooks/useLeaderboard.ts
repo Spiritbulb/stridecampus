@@ -24,7 +24,8 @@ export function useLeaderboard(id: any) {
           username,
           credits,
           avatar_url,
-          school_name
+          school_name,
+          checkmark
         `)
         .eq('is_verified', true)
         .order('credits', { ascending: false })
@@ -40,7 +41,8 @@ export function useLeaderboard(id: any) {
         school: user.school_name || 'Unknown School',
         avatar: user.avatar_url,
         position: index + 1,
-        id: user.id
+        id: user.id,
+        checkmark: user.checkmark
       }));
 
       const currentUserIndex = transformedData.findIndex(entry => entry.id === id);
