@@ -11,9 +11,10 @@ interface ResourceCardProps {
   file: LibraryFile;
   user: User | null;
   onDeleteSuccess: () => void;
+  showOwner: boolean;
 }
 
-export const ResourceCard: React.FC<ResourceCardProps> = ({ file, user, onDeleteSuccess }) => {
+export const ResourceCard: React.FC<ResourceCardProps> = ({ file, user, onDeleteSuccess, showOwner }) => {
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [copied, setCopied] = useState(false);
   
@@ -270,10 +271,12 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ file, user, onDelete
           )}
           <span>{formatDate(file.created_at)}</span>
         </div>
+        {showOwner && (
         <div className="mt-2 text-gray-600">
           Uploaded by <a href={`/u/${file.users?.username || 'Unknown'}`} className='hover:underline font-medium'>{file.users?.username || 'Unknown'}{file.users?.checkmark && checkmarkImg}</a>
           {file.users?.school_name && ` • ${file.users.school_name}`}
         </div>
+        )}
       </div>
       
       <button

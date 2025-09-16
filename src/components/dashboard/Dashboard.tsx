@@ -6,11 +6,14 @@ import { Leaderboard } from './Leaderboard';
 import { QuickActions } from './QuickActions';
 import { QUICK_ACTIONS } from './deps/actions';
 import { User } from '@/utils/supabaseClient';
+import MyLibrary from '../library/MyLibrary';
 
 interface DashboardProps {
   user: User;
   transactions: any[];
   leaderboard: any[];
+  onCreateTransaction: any,
+  onRefetchTransactions: any,
   isLoading: {
     transactions: boolean;
     leaderboard: boolean;
@@ -147,7 +150,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, transactions, leader
               user={user}
             />
           </div>
+          
         </div>
+        {/* Library */}
+          <MyLibrary/>
       </div>
     </div>
   );

@@ -17,8 +17,7 @@ interface Referral {
   created_at: string;
   completed_at: string | null;
   referred_user?: {
-    email: string;
-    full_name: string;
+    username: string;
     created_at: string;
   };
 }
@@ -49,8 +48,7 @@ export default function ReferralsPage() {
         .select(`
           *,
           referred_user:users!referred_id (
-            email,
-            full_name,
+            username,
             created_at
           )
         `)
@@ -251,12 +249,11 @@ export default function ReferralsPage() {
                     <tr key={referral.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {referral.referred_user?.full_name || 'Unknown'}
+                          <a href={`/u/${referral.referred_user?.username}`}>
+                          <div className="text-sm font-medium text-gray-900 hover:text-[#f23b36] hover:underline">
+                            {referral.referred_user?.username || 'Unknown'}
                           </div>
-                          <div className="text-sm text-gray-500">
-                            {referral.referred_user?.email}
-                          </div>
+                          </a>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

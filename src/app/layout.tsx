@@ -13,6 +13,7 @@ const poppins = Poppins({
 })
 
 export const metadata = {
+  metadataBase: new URL('https://stridecampus.com'),
   title: {
     default: 'Stride Campus - Campus Communities & collabs',
     template: '%s - Stride Campus'

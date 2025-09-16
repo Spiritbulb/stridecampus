@@ -147,6 +147,7 @@ export interface CreditTransaction {
   transaction_type: string;
   description: string;
   created_at: string;
+  type: string;
 }
 
 export interface LeaderboardEntry {

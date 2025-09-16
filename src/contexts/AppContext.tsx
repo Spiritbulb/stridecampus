@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useContext, useReducer, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Session } from '@supabase/supabase-js';
 
@@ -38,7 +38,7 @@ const AUTH_CHECK_THROTTLE = 1000; // 1 second
 const TRANSITION_DELAY = 300;
 
 const initialState: AppState = {
-  currentScreen: 'auth',
+  currentScreen: 'splash',
   isTransitioning: false,
   isLoading: true,
   justSignedUp: false,
@@ -169,6 +169,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const authStateRef = useRef({ session, user, loading: authLoading });
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitializedRef = useRef(false);
+  const [loading, setLoading] = useState(false);
 
   // Memoized screen transition handler
   const handleScreenTransition = useCallback((nextScreen: ScreenType) => {
@@ -178,7 +179,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (transitionTimeoutRef.current) {
       clearTimeout(transitionTimeoutRef.current);
     }
-    
     dispatch({ type: 'SET_TRANSITIONING', payload: true });
     
     transitionTimeoutRef.current = setTimeout(() => {
@@ -215,19 +215,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     
     const now = Date.now();
     
-    // Handle initial load
-    if (!isInitializedRef.current && !authLoading) {
+    // Handle initial load - show loading state until auth is determined
+    if (!isInitializedRef.current) {
+      if (authLoading) {
+        // Still loading, don't change screen yet
+        return;
+      }
+      
       isInitializedRef.current = true;
       dispatch({ type: 'SET_LOADING', payload: false });
       
       // If we have persisted state, respect it unless auth state conflicts
       const persistedScreen = state.currentScreen;
+      
       if (session && user) {
+        // User is authenticated
         if (persistedScreen !== 'dashboard' && persistedScreen !== 'welcome-credits') {
           handleScreenTransition('dashboard');
         }
-      } else if (persistedScreen !== 'auth') {
-        handleScreenTransition('auth');
+      } else {
+        // User is not authenticated
+        if (persistedScreen !== 'auth') {
+          handleScreenTransition('auth');
+        }
       }
       return;
     }
@@ -245,7 +255,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       
-      if (state.currentScreen !== 'dashboard') {
+      if (state.currentScreen !== 'dashboard' && state.currentScreen !== 'welcome-credits') {
         handleScreenTransition('dashboard');
       }
     } else if (!session && !user) {

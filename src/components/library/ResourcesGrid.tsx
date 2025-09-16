@@ -13,6 +13,7 @@ interface ResourcesGridProps {
   pagination: Pagination;
   onRefresh: () => void;
   onPageChange: (page: number) => void;
+  showOwner: boolean;
 }
 
 export const ResourcesGrid: React.FC<ResourcesGridProps> = ({
@@ -21,7 +22,8 @@ export const ResourcesGrid: React.FC<ResourcesGridProps> = ({
   user,
   pagination,
   onRefresh,
-  onPageChange
+  onPageChange,
+  showOwner,
 }) => {
   if (isLoading) {
     return (
@@ -60,6 +62,7 @@ export const ResourcesGrid: React.FC<ResourcesGridProps> = ({
             file={file}
             user={user}
             onDeleteSuccess={onRefresh}
+            showOwner={showOwner}
           />
         ))}
       </div>

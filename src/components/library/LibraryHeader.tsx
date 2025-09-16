@@ -5,9 +5,10 @@ import { User } from './types';
 interface LibraryHeaderProps {
   user: User | null;
   onUploadClick: () => void;
+  owner: boolean;
 }
 
-export const LibraryHeader: React.FC<LibraryHeaderProps> = ({ user, onUploadClick }) => {
+export const LibraryHeader: React.FC<LibraryHeaderProps> = ({ user, onUploadClick, owner }) => {
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-3xl p-8 mb-8 shadow-sm border border-gray-100">
       {/* Background decoration */}
@@ -30,12 +31,26 @@ export const LibraryHeader: React.FC<LibraryHeaderProps> = ({ user, onUploadClic
         {/* Content Section */}
         <div className="text-center lg:text-left order-1 lg:order-2 flex-1">
           <div className="space-y-4">
+            {owner && (
+            <h1 className="text-5xl lg:text-6xl font-extrabold bg-gradient-to-r from-gray-800 via-gray-900 to-gray-700 bg-clip-text text-transparent leading-tight">
+              My Library
+            </h1>
+            )}
+            {!owner && (
             <h1 className="text-5xl lg:text-6xl font-extrabold bg-gradient-to-r from-gray-800 via-gray-900 to-gray-700 bg-clip-text text-transparent leading-tight">
               Resource Library
             </h1>
+            )}
+            {!owner && (
             <p className="text-gray-600 text-xl lg:text-2xl font-medium max-w-2xl mx-auto lg:mx-0 leading-relaxed">
               Discover and share learning materials with your community
             </p>
+            )}
+            {owner && (
+            <p className="text-gray-600 text-xl lg:text-2xl font-medium max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+              Share a resource to the public library and view it here!
+            </p>
+            )}
             <div className="flex justify-center lg:justify-start">
               <div className="w-24 h-1 bg-gradient-to-r from-[#f23b36] to-pink-500 rounded-full"></div>
             </div>

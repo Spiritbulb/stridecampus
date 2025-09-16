@@ -1,4 +1,4 @@
-// app/page.tsx - Make sure to handle the referral code properly
+// app/page.tsx - Updated to use enhanced useTransactions hook
 'use client';
 import React, { Suspense, useCallback, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -20,7 +20,17 @@ function IndexContent() {
   const { currentScreen, isTransitioning, handleScreenTransition, handleSuccessfulSignUp } = useApp();
   const { session, user, loading: authLoading, signUp, signIn } = useAuth();
   const userId = user?.id;
-  const { transactions, loading: transactionsLoading } = useTransactions(userId);
+  
+  // Enhanced useTransactions hook with additional functionality
+  const { 
+    transactions, 
+    loading: transactionsLoading, 
+    error: transactionsError,
+    refetch: refetchTransactions,
+    createTransaction,
+    createTransactionWithCreditsUpdate
+  } = useTransactions(userId);
+  
   const { leaderboard, loading: leaderboardLoading } = useLeaderboard(userId);
   const searchParams = useSearchParams();
   const referralCode = searchParams.get('ref');
@@ -29,10 +39,21 @@ function IndexContent() {
     try {
       const { error } = await signUp(email, password, username, referralCode || undefined);
       if (error) throw error;
+
+      // Create a welcome bonus transaction if sign up is successful
+      if (userId) {
+        await createTransaction({
+          amount: 100, // Welcome bonus
+          description: 'Welcome bonus',
+          type: 'bonus',
+          reference_id: `welcome_bonus_${userId}`, // Prevent duplicate welcome bonuses
+        });
+      }
+
       handleSuccessfulSignUp();
       toast({
         title: 'Welcome!',
-        description: 'Account created successfully.',
+        description: 'Account created successfully. You received 100 credits!',
       });
     } catch (error) {
       toast({
@@ -42,7 +63,7 @@ function IndexContent() {
       });
       throw error;
     }
-  }, [signUp, handleSuccessfulSignUp, referralCode]);
+  }, [signUp, handleSuccessfulSignUp, referralCode, userId, createTransaction]);
 
   const handleSignIn = useCallback(async (email: string, password: string) => {
     try {
@@ -62,6 +83,65 @@ function IndexContent() {
       throw error;
     }
   }, [signIn]);
+
+  // Helper function to create transactions with proper error handling
+  const handleCreateTransaction = useCallback(async (
+    amount: number,
+    description: string,
+    type: 'earned' | 'spent' | 'bonus' | 'refund',
+    referenceId?: string
+  ) => {
+    if (!user) return;
+
+    try {
+      const newBalance = user.credits + amount;
+      
+      const { data, error } = await createTransactionWithCreditsUpdate(
+        {
+          amount,
+          description,
+          type,
+          reference_id: referenceId,
+        },
+        newBalance
+      );
+
+      if (error) {
+        toast({
+          title: 'Transaction Failed',
+          description: error.message,
+          variant: 'destructive'
+        });
+        return false;
+      }
+
+      toast({
+        title: 'Transaction Successful',
+        description: `${amount > 0 ? 'Earned' : 'Spent'} ${Math.abs(amount)} credits`,
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Transaction error:', error);
+      toast({
+        title: 'Transaction Failed',
+        description: 'An unexpected error occurred',
+        variant: 'destructive'
+      });
+      return false;
+    }
+  }, [user, createTransactionWithCreditsUpdate]);
+
+  // Show error toast if transactions fail to load
+  React.useEffect(() => {
+    if (transactionsError) {
+      toast({
+        title: 'Failed to Load Transactions',
+        description: transactionsError,
+        variant: 'destructive'
+      });
+    }
+  }, [transactionsError]);
 
   if (authLoading && transactionsLoading && leaderboardLoading) {
     return (
@@ -110,6 +190,8 @@ function IndexContent() {
                 leaderboard: leaderboardLoading,
                 auth: authLoading
               }}
+              onCreateTransaction={handleCreateTransaction}
+              onRefetchTransactions={refetchTransactions}
             />
           </Suspense>
         )}

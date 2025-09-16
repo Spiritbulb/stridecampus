@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { createTransactionWithCreditsUpdate } from '@/hooks/useTransactions';
 
 export async function uploadYoutubeLink(
   youtubeUrl: string,
@@ -56,7 +57,8 @@ export async function uploadYoutubeLink(
           full_name,
           school_name,
           username,
-          checkmark
+          checkmark,
+          credits
         )
       `)
       .single();
@@ -64,6 +66,33 @@ export async function uploadYoutubeLink(
     if (error) {
       console.error('Supabase insert error:', error);
       throw new Error(error.message || 'Failed to save YouTube link to database');
+    }
+
+    // Award 20 credits for YouTube link upload
+    try {
+      // Get current user credits
+      const currentCredits = data.users?.credits || 0;
+      const newCreditBalance = currentCredits + 20;
+      
+      // Create transaction and update credits
+      await createTransactionWithCreditsUpdate(
+        userId,
+        {
+          amount: 20,
+          description: 'YouTube link upload reward',
+          type: 'bonus',
+          reference_id: `youtube_upload_${data.id}`, // Unique reference to prevent duplicate rewards
+          metadata: {
+            file_id: data.id,
+            youtube_url: youtubeUrl,
+            upload_type: 'youtube'
+          }
+        },
+        newCreditBalance,
+      );
+    } catch (creditError) {
+      console.error('Failed to award credits for YouTube upload:', creditError);
+      // Don't throw error here - the upload was successful
     }
 
     return data;
@@ -205,7 +234,8 @@ export async function uploadFile(file: File, userId: string, description: string
         *,
         users (
           full_name,
-          school_name
+          school_name,
+          credits
         )
       `)
       .single();
@@ -221,6 +251,34 @@ export async function uploadFile(file: File, userId: string, description: string
         console.error('Failed to cleanup R2 file:', cleanupError);
       }
       throw new Error('Failed to save file metadata');
+    }
+
+    // Award 20 credits for file upload
+    try {
+      // Get current user credits
+      const currentCredits = data.users?.credits || 0;
+      const newCreditBalance = currentCredits + 20;
+      
+      // Create transaction and update credits
+      await createTransactionWithCreditsUpdate(
+        userId,
+        {
+          amount: 20,
+          description: 'File upload reward',
+          type: 'bonus',
+          reference_id: `file_upload_${data.id}`, // Unique reference to prevent duplicate rewards
+          metadata: {
+            file_id: data.id,
+            file_name: file.name,
+            upload_type: 'file'
+          }
+        },
+        newCreditBalance
+      );
+    } catch (creditError) {
+      console.error('Failed to award credits for file upload:', creditError);
+      // Don't throw error here - the file was successfully uploaded
+      // just the credit reward failed
     }
 
     return { 
@@ -441,6 +499,91 @@ export async function getFileById(fileId: string) {
 
   } catch (error) {
     console.error('getFileById error:', error);
+    throw error;
+  }
+}
+
+export async function getUserFiles(
+  userId: string,
+  options: {
+    search?: string;
+    category?: string;
+    subject?: string;
+    resourceType?: string;
+    page?: number;
+    limit?: number;
+  } = {}
+) {
+  try {
+    const {
+      search,
+      category,
+      subject,
+      resourceType,
+      page = 1,
+      limit = 20
+    } = options;
+
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
+    // Build query to list files from Supabase for the specific user
+    let query = supabase
+      .from('library')
+      .select(`
+        *,
+        users (
+          full_name,
+          username,
+          school_name,
+          checkmark
+        )
+      `, { count: 'exact' })
+      .eq('user_id', userId) // Filter by the specific user
+      .order('created_at', { ascending: false });
+
+    // Apply filters
+    if (search) {
+      query = query.or(`original_name.ilike.%${search}%,description.ilike.%${search}%,tags.cs.{${search}}`);
+    }
+
+    if (category && category !== 'all') {
+      query = query.eq('file_category', category);
+    }
+
+    if (subject && subject !== 'all') {
+      query = query.eq('subject', subject);
+    }
+
+    if (resourceType && resourceType !== 'all') {
+      query = query.eq('resource_type', resourceType);
+    }
+
+    // Apply pagination
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error('Supabase error:', error);
+      throw new Error('Failed to retrieve user files');
+    }
+
+    return {
+      files: data,
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        pages: Math.ceil((count || 0) / limit)
+      }
+    };
+
+  } catch (error) {
+    console.error('GET user files error:', error);
     throw error;
   }
 }
