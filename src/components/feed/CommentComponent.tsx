@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/utils/supabaseClient';
 import { Comment } from '@/utils/supabaseClient';
-import { LibraryFile } from '@/app/library/page';
+import { LibraryFile } from '@/components/library/types';
 import { 
   ArrowUp, 
   ArrowDown, 

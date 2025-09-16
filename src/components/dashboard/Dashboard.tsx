@@ -5,18 +5,7 @@ import { ActivityFeed } from './ActivityFeed';
 import { Leaderboard } from './Leaderboard';
 import { QuickActions } from './QuickActions';
 import { QUICK_ACTIONS } from './deps/actions';
-
-interface User {
-  id: string;
-  full_name: string;
-  school_name?: string;
-  credits: number;
-  level_name: string;
-  level_points: number;
-  login_streak: number;
-  major?: string;
-  year_of_study?: string;
-}
+import { User } from '@/utils/supabaseClient';
 
 interface DashboardProps {
   user: User;
@@ -79,10 +68,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, transactions, leader
     return WELCOME_MESSAGES[2]; // What's up
   }, []);
 
-  // Get user's first name safely
-  const userFirstName = useMemo(() => {
-    return user.full_name.split(' ')[0];
-  }, [user.full_name]);
+  // Get username safely
+  const userName = useMemo(() => {
+    return user.username;
+  }, [user.username]);
 
   // Trigger greeting animation on component mount
   useEffect(() => {
@@ -108,7 +97,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, transactions, leader
           <h1 className={`text-4xl font-bold text-gray-900 transition-all duration-500 ${
             greetingAnimation ? 'scale-105' : 'scale-100'
           }`}>
-            {timedMessage}, {userFirstName}!
+            {timedMessage}, {userName}!
           </h1>
           {userInfoLine && (
             <p className="text-gray-600 text-lg">
@@ -154,6 +143,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, transactions, leader
               leaderboard={leaderboard} 
               currentUserId={user?.id} 
               loading={isLoading.leaderboard}
+              user={user}
             />
           </div>
         </div>

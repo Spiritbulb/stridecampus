@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Crown, Trophy, Medal } from 'lucide-react';
+import { User } from '@/utils/supabaseClient';
 
 interface LeaderboardProps {
   leaderboard: any[];
   currentUserId: string;
   loading: any;
+  user: User;
 }
 
-export const Leaderboard: React.FC<LeaderboardProps> = ({ leaderboard, currentUserId }) => {
+export const Leaderboard: React.FC<LeaderboardProps> = ({ leaderboard, currentUserId, user }) => {
   const [isCurrentUser, setCurrentUser] = useState(false);
   const getPositionIcon = (position: number) => {
     switch (position) {
@@ -50,16 +52,22 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ leaderboard, currentUs
                 <div className="flex items-center gap-3">
                   {getPositionIcon(leader.position || index + 1)}
                   <div className="w-8 h-8 bg-gradient-to-br from-accent to-warning rounded-full flex items-center justify-center text-white text-xs font-bold">
-                    {leader.name?.[0] || 'U'}
+                    { user.username|| 'U'}
                   </div>
                   <div>
                     <div className="text-sm font-medium text-foreground">
-                      {leader.name}
-                      {isCurrentUser && (
+                      
+                      {leader.user_id === user?.id && (
                         <span className="ml-2 text-xs bg-accent/20 text-accent px-2 py-0.5 rounded-full">
                           You
                         </span>
                       )}
+                      {leader.user_id !== user?.id && (
+                        <span className="ml-2 text-xs bg-accent/20 text-accent px-2 py-0.5 rounded-full">
+                          {leader.username}
+                        </span>
+                      )}
+                      
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {leader.school}

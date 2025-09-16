@@ -21,6 +21,7 @@ export function useLeaderboard(id: any) {
         .select(`
           id,
           full_name,
+          username,
           credits,
           avatar_url,
           school_name
@@ -34,6 +35,7 @@ export function useLeaderboard(id: any) {
       // Transform data to match expected format
       const transformedData = (data || []).map((user, index) => ({
         name: user.full_name,
+        username: user.username,
         credits: user.credits,
         school: user.school_name || 'Unknown School',
         avatar: user.avatar_url,

@@ -3,7 +3,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/utils/supabaseClient';
 import { Space, Post } from '@/utils/supabaseClient';
-import { LibraryFile } from '@/app/library/page';
+import { LibraryFile } from '@/components/library/types';
 import { X, Link, FileText, Plus, Minus, Lock, Globe, ArrowLeft, ArrowRight, Upload, Camera } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useRouter, useSearchParams } from 'next/navigation';

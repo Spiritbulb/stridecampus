@@ -275,6 +275,7 @@ export async function getFiles(options: {
         *,
         users (
           full_name,
+          username,
           school_name,
           username,
           checkmark
@@ -399,5 +400,47 @@ export async function checkFileExists(filename: string): Promise<boolean> {
   } catch (error) {
     console.error('Error checking file existence:', error);
     return false;
+  }
+}
+
+export async function getFileById(fileId: string) {
+  try {
+    if (!fileId) {
+      throw new Error('File ID is required');
+    }
+
+    // Query Supabase for the specific file with user information
+    const { data, error } = await supabase
+      .from('library')
+      .select(`
+        *,
+        users (
+          full_name,
+          school_name,
+          username,
+          checkmark
+        )
+      `)
+      .eq('id', fileId)
+      .single(); // Use single() since we expect only one result
+
+    if (error) {
+      console.error('Supabase error:', error);
+      if (error.code === 'PGRST116') {
+        // No rows returned
+        throw new Error('File not found');
+      }
+      throw new Error('Failed to retrieve file');
+    }
+
+    if (!data) {
+      throw new Error('File not found');
+    }
+
+    return data;
+
+  } catch (error) {
+    console.error('getFileById error:', error);
+    throw error;
   }
 }

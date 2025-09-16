@@ -591,7 +591,7 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
 
       {/* Edit Profile Modal */}
 {isEditModalOpen && (
-  <div className="fixed inset-0 backdrop-blur flex items-center justify-center z-50 p-4">
+  <div className="fixed inset-0 backdrop-blur flex items-center justify-center z-50 p-4 mb-16">
     <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">

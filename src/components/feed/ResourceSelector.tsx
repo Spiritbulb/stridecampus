@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { LibraryFile } from '@/app/library/page';
+import { LibraryFile } from '@/components/library/types';
 import { X, Search, FileText, Check, Filter } from 'lucide-react';
 import { getFiles } from '@/utils/r2';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
@@ -59,7 +59,8 @@ export default function ResourceSelector({ onSelect, onClose, excludedResources 
       setIsLoading(true);
       const result = await getFiles({
         page: 1,
-        limit: 100 // Increase limit to show more resources
+        limit: 100, // Increase limit to show more resources
+        resourceType: undefined
       });
       
       if (result && 'files' in result) {
