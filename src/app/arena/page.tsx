@@ -1,6 +1,6 @@
 // app/page.tsx - Make sure to handle the referral code properly
 'use client';
-import React, { Suspense, useCallback } from 'react';
+import React, { Suspense, useCallback, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
@@ -20,7 +20,6 @@ function IndexContent() {
   const { currentScreen, isTransitioning, handleScreenTransition, handleSuccessfulSignUp } = useApp();
   const { session, user, loading: authLoading, signUp, signIn } = useAuth();
   const userId = user?.id;
-  
   const { transactions, loading: transactionsLoading } = useTransactions(userId);
   const { leaderboard, loading: leaderboardLoading } = useLeaderboard(userId);
   const searchParams = useSearchParams();
@@ -30,7 +29,6 @@ function IndexContent() {
     try {
       const { error } = await signUp(email, password, username, referralCode || undefined);
       if (error) throw error;
-      
       handleSuccessfulSignUp();
       toast({
         title: 'Welcome!',
@@ -65,12 +63,11 @@ function IndexContent() {
     }
   }, [signIn]);
 
-  if (authLoading) {
+  if (authLoading && transactionsLoading && leaderboardLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
           <LoadingSpinner size="large" />
-          <p className="text-muted-foreground">Getting things ready...</p>
         </div>
       </div>
     );
@@ -79,9 +76,6 @@ function IndexContent() {
   return (
     <Layout showNavigation={currentScreen === 'dashboard'}>
       <div className={`transition-opacity duration-300 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
-        {currentScreen === 'splash' && (
-          <SplashScreen onGetStarted={() => handleScreenTransition('auth')}/>
-        )}
         
         {currentScreen === 'auth' && (
           <AuthScreen 
@@ -90,6 +84,7 @@ function IndexContent() {
             onBack={() => handleScreenTransition('splash')}
             user={user}
             referralCode={referralCode || undefined}
+            isLoading={authLoading}
           />
         )}
         
@@ -112,7 +107,8 @@ function IndexContent() {
               leaderboard={leaderboard}
               isLoading={{
                 transactions: transactionsLoading,
-                leaderboard: leaderboardLoading
+                leaderboard: leaderboardLoading,
+                auth: authLoading
               }}
             />
           </Suspense>

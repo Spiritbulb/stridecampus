@@ -65,6 +65,7 @@ interface AuthScreenProps {
   onBack: () => void;
   user: any;
   referralCode?: string;
+  isLoading: boolean;
 }
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ 
@@ -72,7 +73,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   onSignIn, 
   onBack,
   user,
-  referralCode
+  referralCode,
+  isLoading
 }) => {
   const [isSignUp, setIsSignUp] = useState(true);
   const [step, setStep] = useState(1);
@@ -173,6 +175,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   };
 
   {loading && <LoadingSpinner />}
+  {isLoading && <LoadingSpinner />}
 
   return (
     <AuthErrorBoundary onReset={resetForm}>

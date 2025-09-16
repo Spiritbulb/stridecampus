@@ -38,7 +38,7 @@ const AUTH_CHECK_THROTTLE = 1000; // 1 second
 const TRANSITION_DELAY = 300;
 
 const initialState: AppState = {
-  currentScreen: 'splash',
+  currentScreen: 'auth',
   isTransitioning: false,
   isLoading: true,
   justSignedUp: false,

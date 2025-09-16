@@ -14,6 +14,7 @@ interface DashboardProps {
   isLoading: {
     transactions: boolean;
     leaderboard: boolean;
+    auth: boolean;
   };
 }
 
