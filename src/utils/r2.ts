@@ -1,5 +1,121 @@
 import { supabase } from './supabaseClient';
 
+export async function uploadYoutubeLink(
+  youtubeUrl: string,
+  userId: string,
+  description: string,
+  tags: string,
+  subject: string
+) {
+  try {
+    // Validate YouTube URL format
+    const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+$/;
+    if (!youtubeRegex.test(youtubeUrl)) {
+      throw new Error('Invalid YouTube URL format');
+    }
+
+    // Extract video ID from various YouTube URL formats
+    const videoId = extractYoutubeVideoId(youtubeUrl);
+    if (!videoId) {
+      throw new Error('Could not extract video ID from URL');
+    }
+
+    // Optionally validate the video exists by checking with YouTube API
+    // This is optional but recommended for better user experience
+    const isValidVideo = await validateYoutubeVideo(videoId);
+    if (!isValidVideo) {
+      throw new Error('YouTube video not found or unavailable');
+    }
+
+    // Prepare tags array
+    const tagsArray = tags
+      ? tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+      : [];
+
+    // Insert into Supabase
+    const { data, error } = await supabase
+      .from('library')
+      .insert({
+        user_id: userId,
+        youtube_url: youtubeUrl,
+        description: description || null,
+        tags: tagsArray.length > 0 ? tagsArray : null,
+        subject: subject,
+        resource_type: 'youtube',
+        // These fields are null for YouTube resources
+        filename: null,
+        original_name: `YouTube Video: ${videoId}`,
+        file_type: 'video/youtube',
+        file_size: 0,
+        file_category: 'video',
+        storage_path: null
+      })
+      .select(`
+        *,
+        users (
+          full_name,
+          school_name,
+          username,
+          checkmark
+        )
+      `)
+      .single();
+
+    if (error) {
+      console.error('Supabase insert error:', error);
+      throw new Error(error.message || 'Failed to save YouTube link to database');
+    }
+
+    return data;
+
+  } catch (error: any) {
+    console.error('Error uploading YouTube link:', error);
+    throw error;
+  }
+}
+
+// Helper function to extract YouTube video ID from various URL formats
+function extractYoutubeVideoId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/,
+    /youtube\.com\/watch\?v=([^&]+)/,
+    /youtube\.com\/embed\/([^\/]+)/,
+    /youtube\.com\/v\/([^\/]+)/,
+    /youtu\.be\/([^\/]+)/
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
+
+// Optional function to validate YouTube video exists
+async function validateYoutubeVideo(videoId: string): Promise<boolean> {
+  try {
+    // You can implement this using YouTube Data API if you have an API key
+    // For now, we'll use a simple oembed check which doesn't require an API key
+    const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+    
+    if (response.ok) {
+      return true;
+    }
+    
+    // If oembed fails, try a simple HEAD request to the video URL
+    const headResponse = await fetch(`https://www.youtube.com/watch?v=${videoId}`, { method: 'HEAD' });
+    return headResponse.ok;
+    
+  } catch (error) {
+    console.warn('YouTube validation failed, proceeding anyway:', error);
+    // If validation fails, we'll still allow the upload but log the issue
+    return true;
+  }
+}
+
 // Configuration - update with your R2 API worker URL
 const R2_API_URL = 'https://stride-media-api.spiritbulb.workers.dev';
 
@@ -77,6 +193,7 @@ export async function uploadFile(file: File, userId: string, description: string
         original_name: file.name,
         file_type: file.type,
         file_size: file.size,
+        resource_type: 'file',
         file_category: getFileCategory(file.type),
         description: description,
         tags: tags ? tags.split(',').map(tag => tag.trim()) : [],
@@ -125,6 +242,7 @@ export async function getFiles(options: {
   search?: string;
   category?: string;
   subject?: string;
+  resourceType: string | undefined;
   page?: number;
   limit?: number;
 }) {

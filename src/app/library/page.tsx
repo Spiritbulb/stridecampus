@@ -1,10 +1,11 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { FileText, Upload, Search, Filter, Trash2, Download, Plus, X, BookOpen } from 'lucide-react';
+import { FileText, Upload, Search, Filter, Trash2, Download, Plus, X, BookOpen, Play, Youtube } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { uploadFile, getFiles, deleteFile, getFileUrl } from '@/utils/r2'; // Import the utility functions
+import { uploadFile, getFiles, deleteFile, getFileUrl, uploadYoutubeLink } from '@/utils/r2'; // Import the utility functions
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
+import { supabase } from '@/utils/supabaseClient'; // Import Supabase client
 
 export interface LibraryFile {
   id: string;
@@ -19,6 +20,8 @@ export interface LibraryFile {
   subject: string;
   storage_path: string;
   created_at: string;
+  resource_type: string; // 'file' or 'youtube'
+  youtube_url?: string; // Only for YouTube resources
   users: {
     full_name: string;
     school_name: string;
@@ -50,6 +53,12 @@ const SUBJECT_OPTIONS = [
   'Other'
 ];
 
+// Resource type options
+const RESOURCE_TYPE_OPTIONS = [
+  { value: 'file', label: 'PDF File' },
+  { value: 'youtube', label: 'YouTube Video' }
+];
+
 export default function Library() {
   const { user } = useAuth();
   const [files, setFiles] = useState<LibraryFile[]>([]);
@@ -58,9 +67,12 @@ export default function Library() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSubject, setSelectedSubject] = useState('all');
+  const [selectedResourceType, setSelectedResourceType] = useState('all');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadForm, setUploadForm] = useState({
+    resourceType: 'file', // 'file' or 'youtube'
     file: null as File | null,
+    youtubeUrl: '',
     description: '',
     tags: '',
     subject: ''
@@ -83,6 +95,7 @@ export default function Library() {
         search: searchQuery,
         category: selectedCategory !== 'all' ? selectedCategory : undefined,
         subject: selectedSubject !== 'all' ? selectedSubject : undefined,
+        resourceType: selectedResourceType !== 'all' ? selectedResourceType : undefined,
         page,
         limit: pagination.limit
       });
@@ -117,22 +130,12 @@ export default function Library() {
 
   useEffect(() => {
     fetchFiles();
-  }, [searchQuery, selectedCategory, selectedSubject]);
+  }, [searchQuery, selectedCategory, selectedSubject, selectedResourceType]);
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uploadForm.file || !user) return;
+    if (!user) return;
     
-    // Check if file is PDF
-    if (uploadForm.file.type !== 'application/pdf') {
-      toast({
-        title: 'Invalid file type',
-        description: 'Only PDF files are allowed',
-        variant: 'destructive'
-      });
-      return;
-    }
-
     // Validate subject is selected
     if (!uploadForm.subject) {
       toast({
@@ -146,20 +149,84 @@ export default function Library() {
     setIsUploading(true);
     
     try {
-      const result = await uploadFile(
-        uploadForm.file,
-        user.id,
-        uploadForm.description,
-        uploadForm.tags,
-        uploadForm.subject
-      );
+      if (uploadForm.resourceType === 'file') {
+        // Handle file upload
+        if (!uploadForm.file) {
+          toast({
+            title: 'File required',
+            description: 'Please select a file to upload',
+            variant: 'destructive'
+          });
+          return;
+        }
+        
+        // Check if file is PDF
+        if (uploadForm.file.type !== 'application/pdf') {
+          toast({
+            title: 'Invalid file type',
+            description: 'Only PDF files are allowed',
+            variant: 'destructive'
+          });
+          return;
+        }
+        
+        const result = await uploadFile(
+          uploadForm.file,
+          user.id,
+          uploadForm.description,
+          uploadForm.tags,
+          uploadForm.subject
+        );
+        
+        toast({
+          title: 'Success',
+          description: 'File uploaded successfully'
+        });
+      } else {
+        // Handle YouTube URL upload
+        if (!uploadForm.youtubeUrl) {
+          toast({
+            title: 'YouTube URL required',
+            description: 'Please enter a YouTube URL',
+            variant: 'destructive'
+          });
+          return;
+        }
+        
+        // Validate YouTube URL
+        const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+$/;
+        if (!youtubeRegex.test(uploadForm.youtubeUrl)) {
+          toast({
+            title: 'Invalid YouTube URL',
+            description: 'Please enter a valid YouTube URL',
+            variant: 'destructive'
+          });
+          return;
+        }
+        
+        const result = await uploadYoutubeLink(
+          uploadForm.youtubeUrl,
+          user.id,
+          uploadForm.description,
+          uploadForm.tags,
+          uploadForm.subject
+        );
+        
+        toast({
+          title: 'Success',
+          description: 'YouTube video added successfully'
+        });
+      }
       
-      toast({
-        title: 'Success',
-        description: 'File uploaded successfully'
-      });
       setShowUploadModal(false);
-      setUploadForm({ file: null, description: '', tags: '', subject: '' });
+      setUploadForm({ 
+        resourceType: 'file', 
+        file: null, 
+        youtubeUrl: '', 
+        description: '', 
+        tags: '', 
+        subject: '' 
+      });
       fetchFiles(); // Refresh the list
       
     } catch (error: any) {
@@ -177,14 +244,14 @@ export default function Library() {
   const handleDelete = async (fileId: string) => {
     if (!user) return;
     
-    if (!confirm('Are you sure you want to delete this file?')) return;
+    if (!confirm('Are you sure you want to delete this resource?')) return;
     
     try {
       const result = await deleteFile(fileId, user.id);
       
       toast({
         title: 'Success',
-        description: 'File deleted successfully'
+        description: 'Resource deleted successfully'
       });
       fetchFiles(); // Refresh the list
       
@@ -200,7 +267,13 @@ export default function Library() {
 
   const handleDownload = async (file: LibraryFile) => {
     try {
-      // Use the getFileUrl utility function to get the direct download URL
+      // For YouTube videos, open in new tab instead of downloading
+      if (file.resource_type === 'youtube' && file.youtube_url) {
+        window.open(file.youtube_url, '_blank');
+        return;
+      }
+      
+      // For files, use the getFileUrl utility function to get the direct download URL
       const fileUrl = 'https://media.stridecampus.com/' + file.filename;
       
       // Create a temporary anchor element to trigger the download
@@ -243,16 +316,22 @@ export default function Library() {
     });
   };
 
+  const extractYoutubeVideoId = (url: string) => {
+    const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[7].length === 11) ? match[7] : null;
+  };
+
   const checkmarkImg = <img src="/check.png" alt="Verified" className="inline mb-1 w-3 h-3 ml-0.5" />;
 
   // Show loading spinner while page is loading
-    if (isPageLoading) {
-      return (
-        <div className="min-h-screen flex items-center justify-center">
-          <LoadingSpinner size="large" />
-        </div>
-      );
-    }
+  if (isPageLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="large" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-16">
@@ -277,7 +356,7 @@ export default function Library() {
 
       {/* Search and Filter */}
       <div className="bg-white border-2 border-gray-100 rounded-2xl p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
             <input
@@ -314,6 +393,19 @@ export default function Library() {
               ))}
             </select>
           </div>
+          <div className="flex items-center gap-2">
+            <Play size={20} className="text-gray-400" />
+            <select
+              value={selectedResourceType}
+              onChange={(e) => setSelectedResourceType(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f23b36] focus:border-transparent"
+            >
+              <option value="all">All Resources</option>
+              {RESOURCE_TYPE_OPTIONS.map(type => (
+                <option key={type.value} value={type.value}>{type.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -345,7 +437,11 @@ export default function Library() {
               <div key={file.id} className="bg-white border-2 border-gray-100 rounded-2xl p-5 hover:shadow-md transition-all duration-300">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <FileText size={36} className="text-red-500" />
+                    {file.resource_type === 'youtube' ? (
+                      <Youtube size={36} className="text-red-500" />
+                    ) : (
+                      <FileText size={36} className="text-red-500" />
+                    )}
                     <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
                       {file.subject}
                     </span>
@@ -361,7 +457,9 @@ export default function Library() {
                   )}
                 </div>
                 
-                <h3 className="font-semibold text-gray-900 mb-2 truncate">{file.original_name}</h3>
+                <h3 className="font-semibold text-gray-900 mb-2 truncate">
+                  {file.resource_type === 'youtube' ? 'YouTube Video' : file.original_name}
+                </h3>
                 
                 {file.description && (
                   <p className="text-gray-600 text-sm mb-4 line-clamp-2">{file.description}</p>
@@ -375,9 +473,24 @@ export default function Library() {
                   ))}
                 </div>
                 
+                {/* YouTube Video Embed */}
+                {file.resource_type === 'youtube' && file.youtube_url && (
+                  <div className="mb-4 rounded-lg overflow-hidden">
+                    <iframe
+                      src={`https://www.youtube.com/embed/${extractYoutubeVideoId(file.youtube_url)}?si=-HVrKxvv8ey47Y6O`}
+                      title="YouTube video player"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="w-full h-40"
+                    ></iframe>
+                  </div>
+                )}
+                
                 <div className="text-xs text-gray-500 mb-3">
                   <div className="flex justify-between">
-                    <span>{formatFileSize(file.file_size)}</span>
+                    {file.resource_type === 'file' && (
+                      <span>{formatFileSize(file.file_size)}</span>
+                    )}
                     <span>{formatDate(file.created_at)}</span>
                   </div>
                   <div className="mt-2 text-gray-600">
@@ -390,8 +503,17 @@ export default function Library() {
                   onClick={() => handleDownload(file)}
                   className="w-full flex items-center justify-center gap-2 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors cursor-pointer"
                 >
-                  <Download size={16} />
-                  Download
+                  {file.resource_type === 'youtube' ? (
+                    <>
+                      <Play size={16} />
+                      Watch on YouTube
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} />
+                      Download
+                    </>
+                  )}
                 </button>
               </div>
             ))}
@@ -440,22 +562,54 @@ export default function Library() {
             <form onSubmit={handleUpload} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  PDF File *
+                  Resource Type *
                 </label>
-                <label className="flex flex-col items-center justify-center w-full p-6 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-gray-400 transition-colors">
-                  <Upload size={24} className="text-gray-400 mb-2" />
-                  <span className="text-sm text-gray-500 text-center">
-                    {uploadForm.file ? uploadForm.file.name : 'Click to select PDF file'}
-                  </span>
-                  <input
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    onChange={(e) => setUploadForm({...uploadForm, file: e.target.files?.[0] || null})}
-                    className="hidden"
-                    required
-                  />
-                </label>
+                <select
+                  value={uploadForm.resourceType}
+                  onChange={(e) => setUploadForm({...uploadForm, resourceType: e.target.value})}
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f23b36] focus:border-transparent"
+                  required
+                >
+                  {RESOURCE_TYPE_OPTIONS.map(type => (
+                    <option key={type.value} value={type.value}>{type.label}</option>
+                  ))}
+                </select>
               </div>
+
+              {uploadForm.resourceType === 'file' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    PDF File *
+                  </label>
+                  <label className="flex flex-col items-center justify-center w-full p-6 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-gray-400 transition-colors">
+                    <Upload size={24} className="text-gray-400 mb-2" />
+                    <span className="text-sm text-gray-500 text-center">
+                      {uploadForm.file ? uploadForm.file.name : 'Click to select PDF file'}
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf,application/pdf"
+                      onChange={(e) => setUploadForm({...uploadForm, file: e.target.files?.[0] || null})}
+                      className="hidden"
+                      required={uploadForm.resourceType === 'file'}
+                    />
+                  </label>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    YouTube URL *
+                  </label>
+                  <input
+                    type="url"
+                    value={uploadForm.youtubeUrl}
+                    onChange={(e) => setUploadForm({...uploadForm, youtubeUrl: e.target.value})}
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f23b36] focus:border-transparent"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    required={uploadForm.resourceType === 'youtube'}
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -510,7 +664,7 @@ export default function Library() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isUploading || !uploadForm.file || !uploadForm.subject}
+                  disabled={isUploading || (uploadForm.resourceType === 'file' ? !uploadForm.file : !uploadForm.youtubeUrl) || !uploadForm.subject}
                   className="flex-1 px-4 py-3 bg-[#f23b36] text-white rounded-xl disabled:opacity-50 hover:shadow-lg transition-all duration-300"
                 >
                   {isUploading ? 'Uploading...' : 'Upload'}
