@@ -6,19 +6,23 @@ interface LoadingSpinnerProps {
   showProgress?: boolean;
   text?: string;
   className?: string;
+  showReportDelay?: number; // Delay in milliseconds before showing report link
 }
 
 export const LoadingSpinner = ({ 
   size = 'default', 
   showProgress = true,
   text = 'Loading...',
-  className = ''
+  className = '',
+  showReportDelay = 10000 // Default: show after 10 seconds
 }: LoadingSpinnerProps) => {
   const { isLoading } = useApp();
   const [progress, setProgress] = useState(0);
   const [isVisible, setIsVisible] = useState(isLoading);
+  const [showReportLink, setShowReportLink] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reportTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const sizeClasses = {
     small: 'h-8 w-auto',
@@ -42,7 +46,22 @@ export const LoadingSpinner = ({
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
+    if (reportTimeoutRef.current) {
+      clearTimeout(reportTimeoutRef.current);
+      reportTimeoutRef.current = null;
+    }
   }, []);
+
+  // Handle report link timeout
+  const setupReportLinkTimeout = useCallback(() => {
+    if (reportTimeoutRef.current) {
+      clearTimeout(reportTimeoutRef.current);
+    }
+    
+    reportTimeoutRef.current = setTimeout(() => {
+      setShowReportLink(true);
+    }, showReportDelay);
+  }, [showReportDelay]);
 
   // Optimized progress simulation
   const simulateProgress = useCallback(() => {
@@ -67,11 +86,16 @@ export const LoadingSpinner = ({
     if (isLoading) {
       setIsVisible(true);
       setProgress(0);
+      setShowReportLink(false);
       // Small delay before starting progress for better UX
-      timeoutRef.current = setTimeout(simulateProgress, 100);
+      timeoutRef.current = setTimeout(() => {
+        simulateProgress();
+        setupReportLinkTimeout();
+      }, 100);
     } else {
       // Complete the progress bar quickly when loading finishes
       setProgress(100);
+      setShowReportLink(false);
       cleanup();
       
       // Hide the spinner after a short delay to show completion
@@ -83,7 +107,11 @@ export const LoadingSpinner = ({
     }
 
     return cleanup;
-  }, [isLoading, simulateProgress, cleanup]);
+  }, [isLoading, simulateProgress, cleanup, setupReportLinkTimeout]);
+
+  const handleReportProblem = () => {
+    window.location.href = `mailto:support@stridecampus.com?subject=Loading Issue Report&body=Hello Stride Campus Support,\n\nI'm experiencing an issue with loading. Here are some details:\n\n- Page URL: ${window.location.href}\n- Loading time: ${Math.round(showReportDelay / 1000)}+ seconds\n- Issue description: `;
+  };
 
   // Don't render if not visible (better for performance)
   if (!isVisible) return null;
@@ -119,6 +147,22 @@ export const LoadingSpinner = ({
             {/* Shimmer effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
           </div>
+        </div>
+      )}
+      
+      {/* Report a problem link - appears after delay */}
+      {showReportLink && (
+        <div className="mt-4 text-center">
+          <p className="text-sm text-gray-600 mb-2">
+            Taking longer than expected?
+          </p>
+          <button
+            onClick={handleReportProblem}
+            className="text-sm text-blue-600 hover:text-blue-800 underline transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded"
+            aria-label="Report a loading problem"
+          >
+            Report a problem
+          </button>
         </div>
       )}
       

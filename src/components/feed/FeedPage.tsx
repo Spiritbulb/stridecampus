@@ -8,28 +8,13 @@ import PostsList from '@/components/feed/main/PostsList';
 import { useFeedData } from '@/hooks/useFeedData';
 import { usePostActions } from '@/hooks/usePostActions';
 import { Post } from '@/utils/supabaseClient';
-import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-
-const DynamicPostDetailModal = dynamic(() => import('./PostDetailModal'), {
-  ssr: false
-});
-
-// Create a placeholder for modals while loading
-const ModalPlaceholder = () => (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <LoadingSpinner size="small" />
-  </div>
-);
-
 
 export default function FeedPage() {
   const { user } = useAuth();
   const [selectedSpace, setSelectedSpace] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('new');
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const router = useRouter();
-  
   
   // Memoize callback functions to prevent unnecessary re-renders
   const handleSpaceChange = useCallback((space: string) => {
@@ -57,8 +42,11 @@ export default function FeedPage() {
   }, [router]);
 
   const selectPost = useCallback((post: Post | null) => {
-    setSelectedPost(post);
-  }, []);
+    if (post) {
+      // Redirect to the individual post page
+      router.push(`/post/${post.id}`);
+    }
+  }, [router]);
 
   const { posts, spaces, isLoading, refetch } = useFeedData(selectedSpace, sortBy, user);
   const { handleVote, handleShare, joinSpace } = usePostActions(user, refetch);
@@ -111,17 +99,6 @@ export default function FeedPage() {
           />
         </aside>
       </div>
-
-      {selectedPost && (
-        <Suspense fallback={<ModalPlaceholder />}>
-          <DynamicPostDetailModal 
-            post={selectedPost}
-            onClose={() => selectPost(null)}
-            onVote={handleVote}
-            onShare={handleShare}
-          />
-        </Suspense>
-      )}
     </div>
   );
 }

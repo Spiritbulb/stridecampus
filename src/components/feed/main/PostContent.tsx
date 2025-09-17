@@ -1,5 +1,5 @@
 import { Post } from '@/utils/supabaseClient';
-import { Link, FileText } from 'lucide-react';
+import { Link, FileText, ExternalLink } from 'lucide-react';
 
 interface PostContentProps {
   post: Post;
@@ -7,36 +7,54 @@ interface PostContentProps {
 
 export default function PostContent({ post }: PostContentProps) {
   return (
-    <>
-      <h3 className="text-lg font-medium text-gray-900 mb-2">{post.title}</h3>
+    <div className="ml-13"> {/* Align with the text content under avatar */}
+      {post.title && (
+        <h3 className="text-xl font-normal text-gray-900 mb-2 leading-tight">
+          {post.title}
+        </h3>
+      )}
       
       {post.content && (
-        <p className="text-gray-800 text-sm mb-3">{post.content}</p>
+        <p className="text-gray-900 text-sm mb-3 leading-normal whitespace-pre-wrap">
+          {post.content}
+        </p>
       )}
       
       {post.is_link_post && post.link_url && (
-        <div className="flex items-center text-sm text-blue-500 mb-3">
-          <Link size={16} className="mr-1" />
-          <span className="truncate">{post.link_url}</span>
+        <div className="border border-gray-200 rounded-xl p-3 mb-3 hover:bg-gray-50 transition-colors">
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <div className="flex items-center text-sm text-gray-500 mb-1">
+                <ExternalLink size={14} className="mr-1" />
+                <span className="truncate">{new URL(post.link_url).hostname}</span>
+              </div>
+              <div className="text-sm text-blue-600 hover:underline cursor-pointer">
+                {post.link_url}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Resource tags */}
       {post.resource_tags && post.resource_tags.length > 0 && (
         <div className="mb-3">
-          <div className="flex items-center text-xs text-gray-500 mb-1">
-            <FileText size={14} className="mr-1" />
-            <span>Linked resources:</span>
+          <div className="flex items-center text-sm text-gray-600 mb-2">
+            <FileText size={14} className="mr-2" />
+            <span>Linked resources</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {post.resource_tags.map(resource => (
-              <span key={resource.id} className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+              <span 
+                key={resource.id} 
+                className="inline-flex items-center px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-sm rounded-full cursor-pointer transition-colors"
+              >
                 {resource.original_name}
               </span>
             ))}
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

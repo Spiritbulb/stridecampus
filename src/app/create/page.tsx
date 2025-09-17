@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/utils/supabaseClient';
 import { Space, Post } from '@/utils/supabaseClient';
 import { LibraryFile } from '@/components/library/types';
-import { X, Link, FileText, Plus, Minus, Lock, Globe, ArrowLeft, ArrowRight, Upload, Camera } from 'lucide-react';
+import { X, Link, FileText, Plus, Minus, Lock, Globe, ArrowLeft, ArrowRight, Upload, Camera, Type, AlignLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ResourceSelector from '@/components/feed/ResourceSelector';
@@ -17,6 +17,10 @@ function CreatePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [contentElements, setContentElements] = useState<Array<{id: string, type: 'text' | 'paragraph', content: string}>>([
+    { id: '1', type: 'text', content: '' }
+  ]);
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -50,6 +54,15 @@ function CreatePage() {
   useEffect(() => {
     fetchSpaces();
   }, [user]);
+
+  // Update formData.content when contentElements change
+  useEffect(() => {
+    const combinedContent = contentElements
+      .map(element => element.content)
+      .filter(content => content.trim())
+      .join('\n\n');
+    setFormData(prev => ({ ...prev, content: combinedContent }));
+  }, [contentElements]);
 
   const fetchSpaces = async () => {
     if (!user) return;
@@ -126,6 +139,27 @@ function CreatePage() {
     }
   };
 
+  const addContentElement = (type: 'text' | 'paragraph') => {
+    const newElement = {
+      id: Date.now().toString(),
+      type,
+      content: ''
+    };
+    setContentElements([...contentElements, newElement]);
+  };
+
+  const updateContentElement = (id: string, content: string) => {
+    setContentElements(elements =>
+      elements.map(el => el.id === id ? { ...el, content } : el)
+    );
+  };
+
+  const removeContentElement = (id: string) => {
+    if (contentElements.length > 1) {
+      setContentElements(elements => elements.filter(el => el.id !== id));
+    }
+  };
+
   const handlePostSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -170,7 +204,7 @@ function CreatePage() {
       if (selectedResources.length > 0) {
         const resourceTags = selectedResources.map(resource => ({
           post_id: post.id,
-          resource_id: resource.id
+          library_id: resource.id
         }));
 
         const { error: tagError } = await supabase
@@ -348,34 +382,48 @@ function CreatePage() {
     switch (currentStep) {
       case 1:
         return (
-          <div className="text-center space-y-8">
-            <div className="space-y-4">
-              <div className="w-20 h-20 bg-gradient-to-br from-[#f23b36] to-[#ff6b66] rounded-full mx-auto flex items-center justify-center">
+          <div className="text-center space-y-12">
+            <div className="space-y-6">
+              <div className="w-20 h-20 bg-gradient-to-br from-[#f23b36] to-[#ff6b66] rounded-full mx-auto flex items-center justify-center shadow-lg">
                 <span className="text-2xl text-white font-bold">C</span>
               </div>
-              <h2 className="text-3xl font-bold text-gray-900">Choose your community name</h2>
+              <h2 className="text-4xl font-bold text-gray-900">Choose your community name</h2>
               <p className="text-gray-600 text-lg max-w-md mx-auto">
                 This will be your community's unique identifier. Choose something memorable!
               </p>
             </div>
 
-            <div className="max-w-md mx-auto space-y-4">
-              <div className="text-left">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="max-w-md mx-auto space-y-8">
+              <div className="space-y-2">
+                <label className="text-gray-900 text-sm font-semibold block text-left">
                   Community Name <span className="text-[#f23b36]">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value.replace(/\s+/g, '_')})}
-                  className="w-full p-4 text-lg border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f23b36] focus:border-transparent transition-all"
-                  placeholder="my_awesome_community"
-                  required
-                  minLength={3}
-                  maxLength={21}
-                  pattern="[a-zA-Z0-9_]+"
-                />
-                <div className="mt-2 flex justify-between items-center text-sm">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value.replace(/\s+/g, '_')})}
+                    onFocus={() => setFocusedField('name')}
+                    onBlur={() => setFocusedField(null)}
+                    className="w-full bg-transparent px-0 py-4 text-gray-900 text-lg placeholder-gray-400 focus:outline-none transition-all duration-300 border-b-2"
+                    style={{ 
+                      borderBottomColor: focusedField === 'name' ? '#f23b36' : '#e5e7eb'
+                    }}
+                    placeholder="my_awesome_community"
+                    required
+                    minLength={3}
+                    maxLength={21}
+                    pattern="[a-zA-Z0-9_]+"
+                  />
+                  <div 
+                    className="absolute bottom-0 left-0 h-0.5 transition-all duration-300 transform origin-left"
+                    style={{ 
+                      backgroundColor: '#f23b36',
+                      width: focusedField === 'name' ? '100%' : '0%'
+                    }}
+                  />
+                </div>
+                <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-500">Letters, numbers, and underscores only</span>
                   <span className={`${formData.name.length > 18 ? 'text-[#f23b36]' : 'text-gray-400'}`}>
                     {formData.name.length}/21
@@ -388,46 +436,74 @@ function CreatePage() {
 
       case 2:
         return (
-          <div className="text-center space-y-8">
-            <div className="space-y-4">
-              <div className="w-20 h-20 bg-gradient-to-br from-[#f23b36] to-[#ff6b66] rounded-full mx-auto flex items-center justify-center">
+          <div className="text-center space-y-12">
+            <div className="space-y-6">
+              <div className="w-20 h-20 bg-gradient-to-br from-[#f23b36] to-[#ff6b66] rounded-full mx-auto flex items-center justify-center shadow-lg">
                 <span className="text-2xl text-white font-bold">✨</span>
               </div>
-              <h2 className="text-3xl font-bold text-gray-900">Make it shine</h2>
+              <h2 className="text-4xl font-bold text-gray-900">Make it shine</h2>
               <p className="text-gray-600 text-lg max-w-md mx-auto">
                 Add a display name and description to help people understand what your community is about.
               </p>
             </div>
 
-            <div className="max-w-md mx-auto space-y-6">
-              <div className="text-left">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="max-w-md mx-auto space-y-8">
+              <div className="space-y-2">
+                <label className="text-gray-900 text-sm font-semibold block text-left">
                   Display Name <span className="text-gray-400">(optional)</span>
                 </label>
-                <input
-                  type="text"
-                  value={formData.displayName}
-                  onChange={(e) => setFormData({...formData, displayName: e.target.value})}
-                  className="w-full p-4 text-lg border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f23b36] focus:border-transparent transition-all"
-                  placeholder="My Awesome Community"
-                  maxLength={100}
-                />
-                <p className="text-xs text-gray-500 mt-1">This is how your community will appear to members</p>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.displayName}
+                    onChange={(e) => setFormData({...formData, displayName: e.target.value})}
+                    onFocus={() => setFocusedField('displayName')}
+                    onBlur={() => setFocusedField(null)}
+                    className="w-full bg-transparent px-0 py-4 text-gray-900 text-lg placeholder-gray-400 focus:outline-none transition-all duration-300 border-b-2"
+                    style={{ 
+                      borderBottomColor: focusedField === 'displayName' ? '#f23b36' : '#e5e7eb'
+                    }}
+                    placeholder="My Awesome Community"
+                    maxLength={100}
+                  />
+                  <div 
+                    className="absolute bottom-0 left-0 h-0.5 transition-all duration-300 transform origin-left"
+                    style={{ 
+                      backgroundColor: '#f23b36',
+                      width: focusedField === 'displayName' ? '100%' : '0%'
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 text-left">This is how your community will appear to members</p>
               </div>
 
-              <div className="text-left">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="space-y-2">
+                <label className="text-gray-900 text-sm font-semibold block text-left">
                   Description <span className="text-gray-400">(optional)</span>
                 </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  className="w-full p-4 text-lg border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f23b36] focus:border-transparent transition-all resize-none"
-                  rows={4}
-                  placeholder="Tell people what makes your community special..."
-                  maxLength={500}
-                />
-                <div className="mt-2 text-right">
+                <div className="relative">
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    onFocus={() => setFocusedField('description')}
+                    onBlur={() => setFocusedField(null)}
+                    className="w-full bg-transparent px-0 py-4 text-gray-900 text-lg placeholder-gray-400 focus:outline-none transition-all duration-300 border-b-2 resize-none"
+                    style={{ 
+                      borderBottomColor: focusedField === 'description' ? '#f23b36' : '#e5e7eb'
+                    }}
+                    rows={4}
+                    placeholder="Tell people what makes your community special..."
+                    maxLength={500}
+                  />
+                  <div 
+                    className="absolute bottom-0 left-0 h-0.5 transition-all duration-300 transform origin-left"
+                    style={{ 
+                      backgroundColor: '#f23b36',
+                      width: focusedField === 'description' ? '100%' : '0%'
+                    }}
+                  />
+                </div>
+                <div className="flex justify-end">
                   <span className={`text-sm ${formData.description.length > 450 ? 'text-[#f23b36]' : 'text-gray-400'}`}>
                     {formData.description.length}/500
                   </span>
@@ -439,19 +515,19 @@ function CreatePage() {
 
       case 3:
         return (
-          <div className="text-center space-y-8">
-            <div className="space-y-4">
-              <div className="w-20 h-20 bg-gradient-to-br from-[#f23b36] to-[#ff6b66] rounded-full mx-auto flex items-center justify-center">
+          <div className="text-center space-y-12">
+            <div className="space-y-6">
+              <div className="w-20 h-20 bg-gradient-to-br from-[#f23b36] to-[#ff6b66] rounded-full mx-auto flex items-center justify-center shadow-lg">
                 <Camera className="text-white" size={28} />
               </div>
-              <h2 className="text-3xl font-bold text-gray-900">Add a community logo</h2>
+              <h2 className="text-4xl font-bold text-gray-900">Add a community logo</h2>
               <p className="text-gray-600 text-lg max-w-md mx-auto">
                 A great logo helps your community stand out and creates a sense of identity.
               </p>
             </div>
 
             <div className="max-w-md mx-auto">
-              <div className="space-y-6">
+              <div className="space-y-8">
                 <div className="flex justify-center">
                   <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-full flex items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer">
                     {formData.logo ? (
@@ -469,10 +545,11 @@ function CreatePage() {
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <button
                     type="button"
-                    className="w-full p-3 border-2 border-[#f23b36] text-[#f23b36] rounded-lg hover:bg-[#f23b36] hover:text-white transition-all font-medium"
+                    className="w-full py-4 px-6 rounded-2xl font-semibold text-lg text-white transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
+                    style={{ backgroundColor: '#f23b36' }}
                     onClick={() => document.getElementById('logo-upload')?.click()}
                   >
                     {formData.logo ? 'Change Logo' : 'Upload Logo'}
@@ -498,21 +575,21 @@ function CreatePage() {
 
       case 4:
         return (
-          <div className="text-center space-y-8">
-            <div className="space-y-4">
-              <div className="w-20 h-20 bg-gradient-to-br from-[#f23b36] to-[#ff6b66] rounded-full mx-auto flex items-center justify-center">
+          <div className="text-center space-y-12">
+            <div className="space-y-6">
+              <div className="w-20 h-20 bg-gradient-to-br from-[#f23b36] to-[#ff6b66] rounded-full mx-auto flex items-center justify-center shadow-lg">
                 <Lock className="text-white" size={28} />
               </div>
-              <h2 className="text-3xl font-bold text-gray-900">Choose your privacy level</h2>
+              <h2 className="text-4xl font-bold text-gray-900">Choose your privacy level</h2>
               <p className="text-gray-600 text-lg max-w-md mx-auto">
                 Decide who can see and participate in your community.
               </p>
             </div>
 
             <div className="max-w-lg mx-auto space-y-4">
-              <label className={`block p-6 border-2 rounded-lg cursor-pointer transition-all ${
+              <label className={`block p-6 border-2 rounded-2xl cursor-pointer transition-all ${
                 formData.isPublic 
-                  ? 'border-[#f23b36] bg-[#f23b36]/5' 
+                  ? 'border-[#f23b36] bg-[#f23b36]/5 shadow-lg' 
                   : 'border-gray-200 hover:border-gray-300'
               }`}>
                 <input
@@ -539,9 +616,9 @@ function CreatePage() {
                 </div>
               </label>
 
-              <label className={`block p-6 border-2 rounded-lg cursor-pointer transition-all ${
+              <label className={`block p-6 border-2 rounded-2xl cursor-pointer transition-all ${
                 !formData.isPublic 
-                  ? 'border-[#f23b36] bg-[#f23b36]/5' 
+                  ? 'border-[#f23b36] bg-[#f23b36]/5 shadow-lg' 
                   : 'border-gray-200 hover:border-gray-300'
               }`}>
                 <input
@@ -578,262 +655,387 @@ function CreatePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f23b36]"></div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      {!isCreatingSpace ? (
-        // Post creation form
-        <div className="bg-white rounded-lg w-full overflow-y-auto">
-          <div className="flex justify-between items-center p-4 border-b">
-            <h2 className="text-xl font-semibold">Create a post</h2>
-            <button
-              onClick={() => router.back()}
-              className="p-1 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
-            >
-              <X size={20} />
-            </button>
-          </div>
+    <div className="min-h-screen bg-white relative overflow-hidden">
+      <button 
+        onClick={() => router.back()}
+        className="absolute top-6 left-6 text-gray-600 hover:text-gray-900 transition-all duration-300 hover:scale-110 rounded-full hover:bg-gray-50 p-2 z-50"
+      >
+        <ArrowLeft size={24} />
+      </button>
 
-          <form onSubmit={handlePostSubmit} className="p-4 space-y-4">
-            {/* Community selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Community
-              </label>
-              <div className="flex gap-2">
-                <select
-                  value={formData.spaceId}
-                  onChange={(e) => setFormData({...formData, spaceId: e.target.value})}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#f23b36]"
-                  required
-                >
-                  <option value="">Select a community</option>
-                  {spaces.map(space => (
-                    <option key={space.id} value={space.id}>
-                      {space.display_name || space.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setIsCreatingSpace(true)}
-                  className="px-4 py-2 bg-[#f23b36] text-white rounded-md hover:shadow-md transition-all whitespace-nowrap"
-                >
-                  New Community
-                </button>
+      {!isCreatingSpace ? (
+        // Post creation form - AuthScreen inspired design
+        <div className="min-h-screen flex items-center justify-center p-6">
+          <div className="w-full max-w-md relative z-10">
+            {/* Header */}
+            <div className="text-center mb-12">
+              <div className="space-y-4">
+                <h2 className="text-4xl font-bold text-gray-900">
+                  Create a post
+                </h2>
+                <p className="text-gray-600 text-lg">
+                  Share your thoughts with the community
+                </p>
               </div>
             </div>
 
-            {/* Post title */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Title
-              </label>
-              <input
-                type="text"
-                value={formData.title}
-                onChange={(e) => setFormData({...formData, title: e.target.value})}
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#f23b36]"
-                placeholder="Enter post title"
-                required
-                maxLength={300}
-              />
-            </div>
-
-            {/* Post content */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Content (optional)
-              </label>
-              <textarea
-                value={formData.content}
-                onChange={(e) => setFormData({...formData, content: e.target.value})}
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#f23b36]"
-                rows={4}
-                placeholder="What would you like to share?"
-              />
-            </div>
-
-            {/* Link post toggle */}
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="isLinkPost"
-                checked={formData.isLinkPost}
-                onChange={(e) => setFormData({...formData, isLinkPost: e.target.checked})}
-                className="mr-2"
-              />
-              <label htmlFor="isLinkPost" className="text-sm font-medium text-gray-700">
-                This is a link post
-              </label>
-            </div>
-
-            {/* Link URL */}
-            {formData.isLinkPost && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Link URL
+            <form onSubmit={handlePostSubmit} className="space-y-8">
+              {/* Community selection */}
+              <div className="space-y-2">
+                <label className="text-gray-900 text-sm font-semibold block">
+                  Community <span className="text-[#f23b36]">*</span>
                 </label>
-                <div className="flex items-center">
-                  <Link size={16} className="text-gray-500 mr-2" />
-                  <input
-                    type="url"
-                    value={formData.linkUrl}
-                    onChange={(e) => setFormData({...formData, linkUrl: e.target.value})}
-                    className="flex-1 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#f23b36]"
-                    placeholder="https://example.com"
-                    required={formData.isLinkPost}
-                  />
+                <div className="flex gap-3">
+                  <div className="flex-1 relative">
+                    <select
+                      value={formData.spaceId}
+                      onChange={(e) => setFormData({...formData, spaceId: e.target.value})}
+                      onFocus={() => setFocusedField('spaceId')}
+                      onBlur={() => setFocusedField(null)}
+                      className="w-full bg-transparent px-0 py-4 text-gray-900 text-lg focus:outline-none transition-all duration-300 border-b-2 appearance-none"
+                      style={{ 
+                        borderBottomColor: focusedField === 'spaceId' ? '#f23b36' : '#e5e7eb'
+                      }}
+                      required
+                    >
+                      <option value="">Select a community</option>
+                      {spaces.map(space => (
+                        <option key={space.id} value={space.id}>
+                          {space.display_name || space.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div 
+                      className="absolute bottom-0 left-0 h-0.5 transition-all duration-300 transform origin-left"
+                      style={{ 
+                        backgroundColor: '#f23b36',
+                        width: focusedField === 'spaceId' ? '100%' : '0%'
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingSpace(true)}
+                    className="px-6 py-3 rounded-2xl font-semibold text-white transition-all duration-300 transform hover:scale-105 hover:shadow-lg whitespace-nowrap"
+                    style={{ backgroundColor: '#f23b36' }}
+                  >
+                    New
+                  </button>
                 </div>
               </div>
-            )}
 
-            {/* Resource tags */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Attach resources (optional)
+              {/* Post title */}
+              <div className="space-y-2">
+                <label className="text-gray-900 text-sm font-semibold block">
+                  Title <span className="text-[#f23b36]">*</span>
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setShowResourceSelector(true)}
-                  className="flex items-center gap-1 text-sm text-[#f23b36] hover:underline"
-                >
-                  <Plus size={16} />
-                  Add resource
-                </button>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                    onFocus={() => setFocusedField('title')}
+                    onBlur={() => setFocusedField(null)}
+                    className="w-full bg-transparent px-0 py-4 text-gray-900 text-lg placeholder-gray-400 focus:outline-none transition-all duration-300 border-b-2"
+                    style={{ 
+                      borderBottomColor: focusedField === 'title' ? '#f23b36' : '#e5e7eb'
+                    }}
+                    placeholder="Enter post title"
+                    required
+                    maxLength={300}
+                  />
+                  <div 
+                    className="absolute bottom-0 left-0 h-0.5 transition-all duration-300 transform origin-left"
+                    style={{ 
+                      backgroundColor: '#f23b36',
+                      width: focusedField === 'title' ? '100%' : '0%'
+                    }}
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <span className={`text-sm ${formData.title.length > 250 ? 'text-[#f23b36]' : 'text-gray-400'}`}>
+                    {formData.title.length}/300
+                  </span>
+                </div>
               </div>
 
-              {selectedResources.length > 0 && (
-                <div className="space-y-2">
-                  {selectedResources.map(resource => (
-                    <div key={resource.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
-                      <div className="flex items-center gap-2">
-                        <FileText size={16} className="text-gray-500" />
-                        <span className="text-sm">{resource.original_name}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeResource(resource.id)}
-                        className="p-1 text-gray-500 hover:text-red-500 rounded"
-                      >
-                        <Minus size={16} />
-                      </button>
+              {/* Content Elements */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-gray-900 text-sm font-semibold block">
+                    Content <span className="text-gray-400">(optional)</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => addContentElement('text')}
+                      className="flex items-center gap-1 text-sm text-[#f23b36] hover:text-[#e12e29] transition-colors"
+                    >
+                      <Type size={16} />
+                      <span>Text</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addContentElement('paragraph')}
+                      className="flex items-center gap-1 text-sm text-[#f23b36] hover:text-[#e12e29] transition-colors"
+                    >
+                      <AlignLeft size={16} />
+                      <span>Paragraph</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {contentElements.map((element, index) => (
+                    <div key={element.id} className="relative group">
+                      {element.type === 'text' ? (
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={element.content}
+                            onChange={(e) => updateContentElement(element.id, e.target.value)}
+                            onFocus={() => setFocusedField(`content-${element.id}`)}
+                            onBlur={() => setFocusedField(null)}
+                            className="w-full bg-transparent px-0 py-3 text-gray-900 text-base placeholder-gray-400 focus:outline-none transition-all duration-300 border-b border-gray-200"
+                            style={{ 
+                              borderBottomColor: focusedField === `content-${element.id}` ? '#f23b36' : '#e5e7eb'
+                            }}
+                            placeholder="Add a line of text..."
+                          />
+                          <div 
+                            className="absolute bottom-0 left-0 h-0.5 transition-all duration-300 transform origin-left"
+                            style={{ 
+                              backgroundColor: '#f23b36',
+                              width: focusedField === `content-${element.id}` ? '100%' : '0%'
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <textarea
+                            value={element.content}
+                            onChange={(e) => updateContentElement(element.id, e.target.value)}
+                            onFocus={() => setFocusedField(`content-${element.id}`)}
+                            onBlur={() => setFocusedField(null)}
+                            className="w-full bg-transparent px-0 py-3 text-gray-900 text-base placeholder-gray-400 focus:outline-none transition-all duration-300 border-b border-gray-200 resize-none"
+                            style={{ 
+                              borderBottomColor: focusedField === `content-${element.id}` ? '#f23b36' : '#e5e7eb'
+                            }}
+                            rows={3}
+                            placeholder="Write a paragraph..."
+                          />
+                          <div 
+                            className="absolute bottom-0 left-0 h-0.5 transition-all duration-300 transform origin-left"
+                            style={{ 
+                              backgroundColor: '#f23b36',
+                              width: focusedField === `content-${element.id}` ? '100%' : '0%'
+                            }}
+                          />
+                        </div>
+                      )}
+                      
+                      {contentElements.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeContentElement(element.id)}
+                          className="absolute -right-8 top-2 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 rounded transition-all"
+                        >
+                          <Minus size={16} />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* Form actions */}
-            <div className="flex justify-end gap-3 pt-4">
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-4 py-2 bg-[#f23b36] text-white rounded-md disabled:opacity-50 hover:shadow-md transition-all"
-              >
-                {isSubmitting ? 'Posting...' : 'Post'}
-              </button>
-            </div>
-          </form>
+              {/* Link post toggle */}
+              <div className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  id="isLinkPost"
+                  checked={formData.isLinkPost}
+                  onChange={(e) => setFormData({...formData, isLinkPost: e.target.checked})}
+                  className="w-4 h-4 text-[#f23b36] bg-gray-100 border-gray-300 rounded focus:ring-[#f23b36] focus:ring-2"
+                />
+                <label htmlFor="isLinkPost" className="text-gray-900 font-medium">
+                  This is a link post
+                </label>
+              </div>
 
-          {/* Resource selector modal */}
-          {showResourceSelector && (
-            <ResourceSelector
-              onSelect={addResource}
-              onClose={() => setShowResourceSelector(false)}
-              excludedResources={selectedResources.map(r => r.id)}
-            />
-          )}
-        </div>
-      ) : (
-        // Space creation form
-        <div className="bg-white rounded-lg overflow-hidden">
-          {/* Header */}
-          <div className="sticky top-0 bg-white border-b border-gray-200 z-10">
-            <div className="px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  {currentStep > 1 && (
-                    <button
-                      onClick={handleBack}
-                      className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors"
-                    >
-                      <ArrowLeft size={20} />
-                    </button>
-                  )}
-                  <div>
-                    <h1 className="text-xl font-semibold text-gray-900">Create Community</h1>
-                    <p className="text-sm text-gray-500">Step {currentStep} of {totalSteps}</p>
+              {/* Link URL */}
+              {formData.isLinkPost && (
+                <div className="space-y-2 animate-in slide-in-from-top-4 duration-300">
+                  <label className="text-gray-900 text-sm font-semibold block">
+                    Link URL <span className="text-[#f23b36]">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="flex items-center">
+                      <Link size={16} className="text-gray-400 mr-3" />
+                      <input
+                        type="url"
+                        value={formData.linkUrl}
+                        onChange={(e) => setFormData({...formData, linkUrl: e.target.value})}
+                        onFocus={() => setFocusedField('linkUrl')}
+                        onBlur={() => setFocusedField(null)}
+                        className="flex-1 bg-transparent px-0 py-4 text-gray-900 text-lg placeholder-gray-400 focus:outline-none transition-all duration-300 border-b-2"
+                        style={{ 
+                          borderBottomColor: focusedField === 'linkUrl' ? '#f23b36' : '#e5e7eb'
+                        }}
+                        placeholder="https://example.com"
+                        required={formData.isLinkPost}
+                      />
+                    </div>
+                    <div 
+                      className="absolute bottom-0 left-8 h-0.5 transition-all duration-300 transform origin-left"
+                      style={{ 
+                        backgroundColor: '#f23b36',
+                        width: focusedField === 'linkUrl' ? 'calc(100% - 2rem)' : '0%'
+                      }}
+                    />
                   </div>
                 </div>
+              )}
+
+              {/* Resource tags */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-gray-900 text-sm font-semibold">
+                    Attach resources <span className="text-gray-400">(optional)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowResourceSelector(true)}
+                    className="flex items-center gap-1 text-sm text-[#f23b36] hover:text-[#e12e29] transition-colors font-medium"
+                  >
+                    <Plus size={16} />
+                    Add resource
+                  </button>
+                </div>
+
+                {selectedResources.length > 0 && (
+                  <div className="space-y-3">
+                    {selectedResources.map(resource => (
+                      <div key={resource.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-[#f23b36]/10 rounded-full flex items-center justify-center">
+                            <FileText size={16} className="text-[#f23b36]" />
+                          </div>
+                          <span className="text-gray-900 font-medium">{resource.original_name}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeResource(resource.id)}
+                          className="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-all"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Form actions */}
+              <div className="flex gap-4 pt-6">
                 <button
-                  onClick={() => setIsCreatingSpace(false)}
-                  className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors"
+                  type="button"
+                  onClick={() => router.back()}
+                  className="px-8 py-4 text-gray-600 rounded-2xl font-semibold hover:text-gray-900 hover:bg-gray-50 transition-all duration-300 transform hover:scale-105"
                 >
-                  <X size={20} />
+                  Cancel
                 </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !formData.title.trim() || !formData.spaceId}
+                  className="flex-1 py-4 px-6 rounded-2xl font-semibold text-lg text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none transform hover:scale-105 hover:shadow-lg group"
+                  style={{ backgroundColor: '#f23b36' }}
+                >
+                  <span>{isSubmitting ? 'Creating post...' : 'Create Post'}</span>
+                  {!isSubmitting && <ArrowRight size={18} className="inline ml-2 group-hover:translate-x-1 transition-transform duration-300" />}
+                </button>
+              </div>
+            </form>
+
+            {/* Resource selector modal */}
+            {showResourceSelector && (
+              <ResourceSelector
+                onSelect={addResource}
+                onClose={() => setShowResourceSelector(false)}
+                excludedResources={selectedResources.map(r => r.id)}
+              />
+            )}
+          </div>
+        </div>
+      ) : (
+        // Space creation form - Existing design with AuthScreen styling improvements
+        <div className="min-h-screen flex items-center justify-center p-6">
+          <div className="w-full max-w-2xl relative z-10">
+            {/* Progress indicator */}
+            <div className="flex justify-center mb-12">
+              <div className="flex gap-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="relative">
+                    <div
+                      className={`w-3 h-3 rounded-full transition-all duration-500 ${
+                        i <= currentStep ? 'scale-125' : 'scale-100'
+                      }`}
+                      style={{ 
+                        backgroundColor: i <= currentStep ? '#f23b36' : '#e5e7eb'
+                      }}
+                    />
+                    {i <= currentStep && (
+                      <div 
+                        className="absolute inset-0 w-3 h-3 rounded-full animate-ping opacity-30"
+                        style={{ backgroundColor: '#f23b36' }}
+                      />
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Progress bar */}
-            <div className="h-1 bg-gray-200">
-              <div 
-                className="h-full bg-[#f23b36] transition-all duration-300 ease-out"
-                style={{ width: `${(currentStep / totalSteps) * 100}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="px-6 py-12">
+            {/* Step content */}
             <div className="min-h-[60vh] flex items-center justify-center">
               {renderStepContent()}
             </div>
-          </div>
 
-          {/* Footer */}
-          <div className="sticky bottom-0 bg-white border-t border-gray-200">
-            <div className="px-6 py-6">
-              <div className="flex justify-between items-center">
-                <div className="text-sm text-gray-500">
-                  {currentStep === totalSteps ? 'Ready to create your community?' : 'Fill out the information above to continue'}
-                </div>
-                <div className="flex space-x-3">
+            {/* Navigation */}
+            <div className="flex justify-between items-center pt-12">
+              <div className="text-sm text-gray-500">
+                {currentStep === totalSteps ? 'Ready to create your community?' : 'Fill out the information above to continue'}
+              </div>
+              <div className="flex space-x-4">
+                {currentStep > 1 && (
                   <button
                     type="button"
-                    onClick={() => setIsCreatingSpace(false)}
-                    className="px-6 py-3 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                    onClick={handleBack}
+                    className="px-8 py-4 text-gray-600 rounded-2xl font-semibold hover:text-gray-900 hover:bg-gray-50 transition-all duration-300 transform hover:scale-105"
                   >
-                    Cancel
+                    Back
                   </button>
-                  <button
-                    onClick={handleNext}
-                    disabled={!canProceed() || isSubmitting}
-                    className="px-6 py-3 bg-[#f23b36] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#e12e29] transition-all font-medium flex items-center space-x-2"
-                  >
-                    {isSubmitting ? (
-                      <span>Creating...</span>
-                    ) : (
-                      <>
-                        <span>{currentStep === totalSteps ? 'Create Community' : 'Continue'}</span>
-                        {currentStep < totalSteps && <ArrowRight size={18} />}
-                      </>
-                    )}
-                  </button>
-                </div>
+                )}
+                <button
+                  onClick={handleNext}
+                  disabled={!canProceed() || isSubmitting}
+                  className="px-8 py-4 rounded-2xl font-semibold text-lg text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none transform hover:scale-105 hover:shadow-lg group flex items-center gap-3"
+                  style={{ backgroundColor: '#f23b36' }}
+                >
+                  {isSubmitting ? (
+                    <span>Creating...</span>
+                  ) : (
+                    <>
+                      <span>{currentStep === totalSteps ? 'Create Community' : 'Continue'}</span>
+                      {currentStep < totalSteps && <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform duration-300" />}
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
@@ -845,7 +1047,11 @@ function CreatePage() {
 
 function CreatePageWithSuspense() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f23b36]"></div>
+      </div>
+    }>
       <CreatePage />
     </Suspense>
   );

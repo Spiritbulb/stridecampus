@@ -72,7 +72,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                   <div>
                     <div className="text-sm font-medium text-gray-800 flex items-center gap-2">
                       <a href={`/u/${leader.username}`} className='hover:underline hover:text-[#f23b36] transition-colors duration-200'>
-                        @{leader.username}
+                        @{leader.username}{leader.checkmark && <img src='/check.png' className='w-3 h-3 ml-1 mb-1 inline'/>}
                       </a>
                       {leader.id === currentUserId && (
                         <span className="ml-1 text-xs bg-[#f23b36] text-white px-2 py-0.5 rounded-full shadow-sm">

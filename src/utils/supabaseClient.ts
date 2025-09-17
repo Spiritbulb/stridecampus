@@ -50,6 +50,7 @@ export interface Post {
   space?: {
     name: string;
     display_name: string;
+    id: string;
   };
   resource_tags?: LibraryFile[];
 }
@@ -102,6 +103,7 @@ export interface ResourceTag {
   resource_id: string;
   created_at: string;
   resource?: LibraryFile;
+  library_id: string;
 }
 
 

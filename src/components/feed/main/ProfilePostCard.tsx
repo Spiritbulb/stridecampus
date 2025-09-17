@@ -17,20 +17,19 @@ interface PostCardProps {
 
 export default function PostCard({ post, onSelect, onVote, onShare, user }: PostCardProps) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <div className="flex">
-        <VoteSection 
-          post={post}
-          onVote={onVote}
-          user={user}
-        />
-        
-        <div className="flex-1 p-3 cursor-pointer" onClick={() => onSelect(post)}>
-          <PostHeader post={post}/>
-          <PostContent post={post} />
+    <div className="bg-white border-b border-gray-200 hover:bg-gray-50 transition-colors duration-200 cursor-pointer" onClick={() => onSelect(post)}>
+      <div className="px-4 py-3">
+        <PostHeader post={post} user={user} />
+        <PostContent post={post} />
+        <div className="flex items-center justify-between mt-3">
           <PostActions 
             post={post}
             onShare={onShare}
+          />
+          <VoteSection 
+            post={post}
+            onVote={onVote}
+            user={user}
           />
         </div>
       </div>

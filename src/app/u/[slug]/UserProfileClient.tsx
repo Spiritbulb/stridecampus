@@ -13,10 +13,6 @@ import PostCard from '@/components/feed/main/ProfilePostCard';
 import { profile } from 'console';
 import { useRouter } from 'next/navigation';
 
-const DynamicPostDetailModal = dynamic(() => import('@/components/feed/PostDetailModal'), {
-  ssr: false
-});
-
 interface ProfileData {
   user: User;
   posts: Post[];
@@ -42,9 +38,11 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
   const { user: currentUser } = useAuth();
   const [profileData, setProfileData] = useState(initialProfileData);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-  const [activeTab, setActiveTab] = useState<'posts' | 'replies' | 'media' | 'likes'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'replies' | 'resources'>('posts');
   const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+
+  
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
@@ -365,8 +363,11 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
   }, [currentUser, profileData, notifyUser, isFollowLoading]);
 
   const selectPost = useCallback((post: Post | null) => {
-    setSelectedPost(post);
-  }, []);
+      if (post) {
+        // Redirect to the individual post page
+        router.push(`/post/${post.id}`);
+      }
+    }, [router]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -510,7 +511,7 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
       {/* Navigation Tabs */}
       <div className="border-b border-gray-200">
         <nav className="flex">
-          {(['posts', 'replies', 'media', 'likes'] as const).map((tab) => (
+          {(['posts', 'replies', 'resources'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -568,26 +569,14 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
               </svg>
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">Nothing to see here — yet</h3>
+            <p>We're still working on this</p>
             <p className="text-gray-500 max-w-sm">
               {activeTab === 'replies' && `When @${profileUser.username} replies to posts, they'll show up here.`}
-              {activeTab === 'media' && `When @${profileUser.username} posts photos and videos, they'll show up here.`}
-              {activeTab === 'likes' && `When @${profileUser.username} likes posts, they'll show up here.`}
+              {activeTab === 'resources' && `When @${profileUser.username} posts photos and videos, they'll show up here.`}
             </p>
           </div>
         )}
       </div>
-      
-      {/* Post Detail Modal */}
-      {selectedPost && (
-        <Suspense fallback={<ModalPlaceholder />}>
-          <DynamicPostDetailModal 
-            post={selectedPost}
-            onClose={() => selectPost(null)}
-            onVote={handleVote}
-            onShare={handleShare}
-          />
-        </Suspense>
-      )}
 
       {/* Edit Profile Modal */}
 {isEditModalOpen && (
