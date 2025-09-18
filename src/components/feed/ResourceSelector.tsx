@@ -1,10 +1,10 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import { LibraryFile } from '@/components/library/types';
 import { X, Search, FileText, Check, Filter, Download } from 'lucide-react';
 import { getUserFiles } from '@/utils/r2';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
+import { useApp } from '@/contexts/AppContext';
 
 interface ResourceSelectorProps {
   onSelect: (resource: LibraryFile) => void;
@@ -13,7 +13,7 @@ interface ResourceSelectorProps {
 }
 
 export default function ResourceSelector({ onSelect, onClose, excludedResources }: ResourceSelectorProps) {
-  const { user } = useAuth();
+  const { user } = useApp();
   const [resources, setResources] = useState<LibraryFile[]>([]);
   const [filteredResources, setFilteredResources] = useState<LibraryFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);

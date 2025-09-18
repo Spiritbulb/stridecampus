@@ -3,8 +3,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bell, User, LogOut, X, MessageSquare, Home, BookOpen, Users, Settings, MessageCirclePlus } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useApp } from '@/contexts/AppContext';
 import Notifications from './Notifications';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 // Constants
 const NOTIFICATIONS_STORAGE_KEY = 'notificationsOpen';
@@ -101,7 +103,6 @@ const NotificationButton = React.memo(({
 
 NotificationButton.displayName = 'NotificationButton';
 
-
 // Optimized user profile section
 const UserProfile = React.memo(({
   user, 
@@ -197,7 +198,9 @@ const MobileNav = React.memo(() => {
 MobileNav.displayName = 'MobileNav';
 
 export const Navbar: React.FC = React.memo(() => {
+  const router = useRouter();
   const { user, loading: authLoading, signOut } = useAuth();
+  const { handleNavigateToAuth } = useApp();
   const pathname = usePathname();
   const { notifications, unreadCount, markAsRead } = useNotifications(user?.id);
   const username = user?.username;
@@ -268,10 +271,12 @@ export const Navbar: React.FC = React.memo(() => {
       await signOut();
       // Clear storage on sign out
       NavbarStorageManager.clear();
+      // Redirect to home page after sign out
+      router.push('/');
     } catch (error) {
       console.error('Sign out error:', error);
     }
-  }, [signOut]);
+  }, [signOut, router]);
 
   const [isMobile, setIsMobile] = useState(false);
   
@@ -292,9 +297,14 @@ export const Navbar: React.FC = React.memo(() => {
   
   // Memoized notification data to prevent unnecessary re-renders
   const notificationData = useMemo(() => notifications, [notifications]);
+
+  // Handle get started click - use context navigation
+  const handleGetStarted = useCallback(() => {
+    handleNavigateToAuth();
+  }, [handleNavigateToAuth]);
   
   return (
-    <nav className=" bg-white sticky top-0 z-50">
+    <nav className="bg-white sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -335,11 +345,12 @@ export const Navbar: React.FC = React.memo(() => {
 
           {/* Conditional rendering based on auth state */}
           {!user && !authLoading && (
-            <a href="/arena">
-              <button className="px-4 py-2 bg-[#f23b36] text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-300 cursor-pointer flex items-center gap-2">
-                Get Started
-              </button>
-            </a>
+            <button 
+              onClick={handleGetStarted}
+              className="px-4 py-2 bg-[#f23b36] text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-300 cursor-pointer flex items-center gap-2"
+            >
+              Get Started
+            </button>
           )}
 
           {authLoading && <LoadingSkeleton />}
@@ -349,16 +360,6 @@ export const Navbar: React.FC = React.memo(() => {
             <div className="flex items-center gap-4">
               {/* Mobile Navigation (simplified) */}
               <MobileNav />
-              
-              {/* Arena Page button 
-              {!isArenaPage && (
-                <a
-                  href="/arena"
-                  className="px-3 py-1.5 bg-[#f23b36] text-white rounded-md text-sm font-medium hover:bg-[#d63430] transition-colors"
-                >
-                  Arena
-                </a>
-              )}*/}
               
               {/* Notifications */}
               <NotificationButton

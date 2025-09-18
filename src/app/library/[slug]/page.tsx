@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { ArrowLeft, FileText, Youtube, Download, Play, Share2, Calendar, User, School, Tag } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 import { getFileById } from '@/utils/r2';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
@@ -14,7 +13,6 @@ export default function ResourcePage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user } = useAuth();
   
   const [resource, setResource] = useState<LibraryFile | null>(null);
   const [loading, setLoading] = useState(true);

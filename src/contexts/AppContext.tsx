@@ -2,6 +2,8 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Session } from '@supabase/supabase-js';
+import { User } from '@/utils/supabaseClient';
+import { useRouter } from 'next/navigation';
 
 type ScreenType = 'splash' | 'auth' | 'welcome-credits' | 'dashboard';
 
@@ -11,6 +13,11 @@ interface AppState {
   isLoading: boolean;
   justSignedUp: boolean;
   lastAuthCheck: number;
+  requiresEmailVerification: boolean;
+  // Added user state
+  user: User | null;
+  session: Session | null;
+  authLoading: boolean;
 }
 
 type AppAction =
@@ -19,6 +26,10 @@ type AppAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_JUST_SIGNED_UP'; payload: boolean }
   | { type: 'SET_LAST_AUTH_CHECK'; payload: number }
+  | { type: 'SET_REQUIRES_EMAIL_VERIFICATION'; payload: boolean }
+  | { type: 'SET_USER'; payload: User | null }
+  | { type: 'SET_SESSION'; payload: Session | null }
+  | { type: 'SET_AUTH_LOADING'; payload: boolean }
   | { type: 'RESET_STATE' }
   | { type: 'BATCH_UPDATE'; payload: Partial<AppState> };
 
@@ -26,6 +37,11 @@ interface AppContextType extends AppState {
   dispatch: React.Dispatch<AppAction>;
   handleScreenTransition: (nextScreen: ScreenType) => void;
   handleSuccessfulSignUp: () => void;
+  handleNavigateToAuth: () => void;
+  checkAuthState: () => void;
+  // Convenience getters
+  isAuthenticated: boolean;
+  needsEmailVerification: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -38,11 +54,15 @@ const AUTH_CHECK_THROTTLE = 1000; // 1 second
 const TRANSITION_DELAY = 300;
 
 const initialState: AppState = {
-  currentScreen: 'splash',
+  currentScreen: 'dashboard',
   isTransitioning: false,
   isLoading: true,
   justSignedUp: false,
   lastAuthCheck: 0,
+  requiresEmailVerification: false,
+  user: null,
+  session: null,
+  authLoading: true,
 };
 
 // Optimized storage operations with error handling and debouncing
@@ -121,6 +141,22 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_LAST_AUTH_CHECK':
       return { ...state, lastAuthCheck: action.payload };
       
+    case 'SET_REQUIRES_EMAIL_VERIFICATION':
+      if (state.requiresEmailVerification === action.payload) return state;
+      return { ...state, requiresEmailVerification: action.payload };
+
+    case 'SET_USER':
+      if (state.user === action.payload) return state;
+      return { ...state, user: action.payload };
+
+    case 'SET_SESSION':
+      if (state.session === action.payload) return state;
+      return { ...state, session: action.payload };
+
+    case 'SET_AUTH_LOADING':
+      if (state.authLoading === action.payload) return state;
+      return { ...state, authLoading: action.payload };
+      
     case 'BATCH_UPDATE':
       // Only update if there are actual changes
       const hasChanges = Object.keys(action.payload).some(
@@ -130,7 +166,14 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, ...action.payload };
       
     case 'RESET_STATE':
-      return { ...initialState, isLoading: false, lastAuthCheck: Date.now() };
+      return { 
+        ...initialState, 
+        isLoading: false, 
+        lastAuthCheck: Date.now(),
+        user: null,
+        session: null,
+        authLoading: false
+      };
       
     default:
       return state;
@@ -144,7 +187,9 @@ function loadPersistedState(): Partial<AppState> {
   // Try new cache format first
   const cached = StorageManager.read<Partial<AppState>>(APP_STATE_CACHE_KEY, {});
   if (cached?.lastAuthCheck && Date.now() - cached.lastAuthCheck < CACHE_DURATION) {
-    return cached;
+    // Don't persist user/session data for security
+    const { user, session, authLoading, ...safeCached } = cached;
+    return safeCached;
   }
 
   // Fallback to legacy screen cache
@@ -153,6 +198,7 @@ function loadPersistedState(): Partial<AppState> {
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [state, dispatch] = useReducer(
     appReducer,
     initialState,
@@ -163,13 +209,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
   
   const { session, user, loading: authLoading } = useAuth();
-  
 
   // Refs for tracking state to prevent unnecessary effects
   const authStateRef = useRef({ session, user, loading: authLoading });
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitializedRef = useRef(false);
-  const [loading, setLoading] = useState(false);
+
+  // Sync auth state from useAuth hook to context
+  useEffect(() => {
+    const prevAuth = authStateRef.current;
+    const authChanged = (
+      prevAuth.session !== session || 
+      prevAuth.user !== user || 
+      prevAuth.loading !== authLoading
+    );
+
+    if (authChanged) {
+      authStateRef.current = { session, user, loading: authLoading };
+      
+      dispatch({ type: 'BATCH_UPDATE', payload: {
+        user,
+        session,
+        authLoading
+      }});
+    }
+  }, [session, user, authLoading]);
 
   // Memoized screen transition handler
   const handleScreenTransition = useCallback((nextScreen: ScreenType) => {
@@ -195,10 +259,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       justSignedUp: true,
       lastAuthCheck: Date.now()
     }});
-    if (session?.user?.email_confirmed_at) {
-      handleScreenTransition('welcome-credits');
-    }
+    handleScreenTransition('welcome-credits');
   }, [handleScreenTransition]);
+
+  // Navigate to auth page
+  const handleNavigateToAuth = useCallback(() => {
+    router.push('/auth');
+  }, [router]);
+
+  // Check auth state manually
+  const checkAuthState = useCallback(() => {
+    const now = Date.now();
+    if (now - state.lastAuthCheck < AUTH_CHECK_THROTTLE) return;
+    
+    dispatch({ type: 'SET_LAST_AUTH_CHECK', payload: now });
+    
+    if (state.session && state.user) {
+      // Check if email needs verification
+      const needsVerification = !state.session.user.email_confirmed_at;
+      dispatch({ type: 'SET_REQUIRES_EMAIL_VERIFICATION', payload: needsVerification });
+      
+      if (state.justSignedUp && !needsVerification) {
+        handleScreenTransition('welcome-credits');
+      } else if (state.currentScreen !== 'dashboard' && state.currentScreen !== 'welcome-credits') {
+        handleScreenTransition('dashboard');
+      }
+    } else {
+      // Not authenticated
+      dispatch({ type: 'SET_REQUIRES_EMAIL_VERIFICATION', payload: false });
+      if (state.currentScreen !== 'splash' && state.currentScreen !== 'auth') {
+        handleScreenTransition('splash');
+      }
+    }
+  }, [state.session, state.user, state.lastAuthCheck, state.justSignedUp, state.currentScreen, handleScreenTransition]);
 
   // Single effect to handle all auth state changes
   useEffect(() => {
@@ -208,9 +301,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       prevAuth.user !== user || 
       prevAuth.loading !== authLoading
     );
-    
-    // Update ref
-    authStateRef.current = { session, user, loading: authLoading };
     
     // Skip if no auth changes and already initialized
     if (!authChanged && isInitializedRef.current) return;
@@ -227,54 +317,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       isInitializedRef.current = true;
       dispatch({ type: 'SET_LOADING', payload: false });
       
-      // If we have persisted state, respect it unless auth state conflicts
-      const persistedScreen = state.currentScreen;
-      
-      if (session && user) {
-        // User is authenticated
-        if (persistedScreen !== 'dashboard' && persistedScreen !== 'welcome-credits') {
-          handleScreenTransition('dashboard');
-        }
-      } else {
-        // User is not authenticated
-        if (persistedScreen !== 'auth') {
-          handleScreenTransition('auth');
-        }
-      }
+      checkAuthState();
       return;
     }
     
     // Skip rapid auth checks
     if (authLoading || now - state.lastAuthCheck < AUTH_CHECK_THROTTLE) return;
     
-    dispatch({ type: 'SET_LAST_AUTH_CHECK', payload: now });
-    
-    // Handle auth state changes
-    if (session && user) {
-      // User is authenticated
-      if (state.justSignedUp) { 
+    checkAuthState();
+  }, [session, user, authLoading, state.lastAuthCheck, checkAuthState]);
 
-        return;
-      }
-      
-      if (state.currentScreen !== 'dashboard' && state.currentScreen !== 'welcome-credits') {
-        handleScreenTransition('dashboard');
-      }
-    } else if (!session && !user) {
-      // User is not authenticated
-      if (state.currentScreen !== 'auth') {
-        // Reset state and go to auth
-        dispatch({ type: 'RESET_STATE' });
-        handleScreenTransition('auth');
-        
-        // Clear storage
-        StorageManager.clear(APP_STATE_CACHE_KEY);
-        StorageManager.clear(SCREEN_CACHE_KEY);
-      }
-    }
-  }, [session, user, authLoading, state.currentScreen, state.justSignedUp, state.lastAuthCheck, handleScreenTransition]);
-
-  // Persist state changes (debounced)
+  // Persist state changes (debounced) - excluding sensitive data
   useEffect(() => {
     if (!isInitializedRef.current) return;
     
@@ -282,10 +335,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       currentScreen: state.currentScreen,
       justSignedUp: state.justSignedUp,
       lastAuthCheck: state.lastAuthCheck,
+      requiresEmailVerification: state.requiresEmailVerification,
+      // Don't persist user/session for security
     };
     
     StorageManager.write(APP_STATE_CACHE_KEY, stateToPersist);
-  }, [state.currentScreen, state.justSignedUp, state.lastAuthCheck]);
+  }, [state.currentScreen, state.justSignedUp, state.lastAuthCheck, state.requiresEmailVerification]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {
@@ -296,13 +351,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Memoized convenience getters
+  const isAuthenticated = useMemo(() => !!(state.user && state.session), [state.user, state.session]);
+  const needsEmailVerification = useMemo(() => 
+    isAuthenticated && !state.session?.user.email_confirmed_at, 
+    [isAuthenticated, state.session]
+  );
+
   // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo<AppContextType>(() => ({
     ...state,
     dispatch,
     handleScreenTransition,
     handleSuccessfulSignUp,
-  }), [state, handleScreenTransition, handleSuccessfulSignUp]);
+    handleNavigateToAuth,
+    checkAuthState,
+    isAuthenticated,
+    needsEmailVerification,
+  }), [
+    state, 
+    handleScreenTransition, 
+    handleSuccessfulSignUp, 
+    handleNavigateToAuth, 
+    checkAuthState,
+    isAuthenticated,
+    needsEmailVerification
+  ]);
 
   return (
     <AppContext.Provider value={contextValue}>

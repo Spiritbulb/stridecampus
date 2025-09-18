@@ -1,6 +1,5 @@
 'use client';
 import React, { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/utils/supabaseClient';
 import { Comment } from '@/utils/supabaseClient';
 import { LibraryFile } from '@/components/library/types';
@@ -8,6 +7,7 @@ import { Send, FileText, Plus, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import CommentComponent from './CommentComponent';
 import ResourceSelector from './ResourceSelector';
+import { useApp } from '@/contexts/AppContext';
 
 interface CommentSectionProps {
   postId: string;
@@ -17,7 +17,7 @@ interface CommentSectionProps {
 }
 
 export default function CommentSection({ postId, comments, isLoading, onCommentAdded }: CommentSectionProps) {
-  const { user } = useAuth();
+  const { user } = useApp();
   const [commentContent, setCommentContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedResources, setSelectedResources] = useState<LibraryFile[]>([]);

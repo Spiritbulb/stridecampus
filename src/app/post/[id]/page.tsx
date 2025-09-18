@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/utils/supabaseClient';
 import { Post, Comment } from '@/utils/supabaseClient';
 import { 
@@ -26,7 +26,7 @@ export default function PostPage() {
   // Ensure id is a string (it could be an array in some cases)
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const router = useRouter();
-  const { user } = useAuth();
+  const { user } = useApp();
   const [postData, setPostData] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);

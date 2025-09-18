@@ -1,6 +1,5 @@
 'use client';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 import { getUserFiles } from '@/utils/r2';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
@@ -9,6 +8,11 @@ import { SearchFilters } from '@/components/library/SearchFilters';
 import { ResourcesGrid } from '@/components/library/ResourcesGrid';
 import { UploadModal } from '@/components/library/UploadModal';
 import { LibraryFile } from '@/components/library/types';
+import { User } from '@/utils/supabaseClient';
+
+interface MyLibraryProps {
+  user: User
+}
 
 // Custom hook for debounced value
 const useDebounce = (value: string, delay: number) => {
@@ -27,8 +31,9 @@ const useDebounce = (value: string, delay: number) => {
   return debouncedValue;
 };
 
-export default function MyLibrary() {
-  const { user } = useAuth();
+export const MyLibrary: React.FC<MyLibraryProps> = ({
+  user,
+}) => {
   const [files, setFiles] = useState<LibraryFile[]>([]);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');

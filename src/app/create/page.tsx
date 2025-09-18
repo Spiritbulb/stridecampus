@@ -1,6 +1,5 @@
 'use client';
 import React, { useState, useEffect, Suspense } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/utils/supabaseClient';
 import { Space, Post } from '@/utils/supabaseClient';
 import { LibraryFile } from '@/components/library/types';
@@ -8,9 +7,10 @@ import { X, Link, FileText, Plus, Minus, Lock, Globe, ArrowLeft, ArrowRight, Upl
 import { toast } from '@/hooks/use-toast';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ResourceSelector from '@/components/feed/ResourceSelector';
+import { useApp } from '@/contexts/AppContext';
 
 function CreatePage() {
-  const { user } = useAuth();
+  const { user } = useApp();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [spaces, setSpaces] = useState<Space[]>([]);

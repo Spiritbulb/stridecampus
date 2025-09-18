@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useApp } from '@/contexts/AppContext'; // Using AppContext for all auth state
 import { toast } from '@/hooks/use-toast';
 import { getFiles } from '@/utils/r2';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
@@ -28,15 +28,22 @@ const useDebounce = (value: string, delay: number) => {
 };
 
 export default function Library() {
-  const { user } = useAuth();
+  // Use AppContext for all auth state and navigation
+  const { 
+    isLoading: appIsLoading, 
+    currentScreen, 
+    handleNavigateToAuth, 
+    user,
+    isAuthenticated 
+  } = useApp();
+  
   const [files, setFiles] = useState<LibraryFile[]>([]);
-  const [isPageLoading, setIsPageLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [selectedResourceType, setSelectedResourceType] = useState('all');
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isFileLoading, setIsFileLoading] = useState(true); // Renamed for clarity
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -63,10 +70,7 @@ export default function Library() {
       // Create new abort controller for this request
       abortControllerRef.current = new AbortController();
       
-      setIsLoading(true);
-      if (isInitialLoad.current) {
-        setIsPageLoading(true);
-      }
+      setIsFileLoading(true);
       
       // Reset to page 1 if filters changed (not pagination)
       const targetPage = resetPage ? 1 : page;
@@ -104,26 +108,39 @@ export default function Library() {
         });
       }
     } finally {
-      setIsLoading(false);
-      if (isInitialLoad.current) {
-        setIsPageLoading(false);
-        isInitialLoad.current = false;
-      }
+      setIsFileLoading(false);
       abortControllerRef.current = null;
     }
   }, [debouncedSearchQuery, selectedCategory, selectedSubject, selectedResourceType, pagination.limit]);
 
   // Effect for initial load
   useEffect(() => {
-    fetchFiles(1, true);
-  }, []);
+    // Only fetch if app is not loading and we're on the correct screen
+    if (!appIsLoading && currentScreen === 'dashboard') {
+      fetchFiles(1, true);
+    }
+  }, [appIsLoading, currentScreen, fetchFiles]);
 
   // Effect for filter changes (uses debounced search query)
   useEffect(() => {
-    if (!isInitialLoad.current) {
+    if (!isInitialLoad.current && !appIsLoading && currentScreen === 'dashboard') {
       fetchFiles(1, true);
     }
-  }, [debouncedSearchQuery, selectedCategory, selectedSubject, selectedResourceType, fetchFiles]);
+  }, [debouncedSearchQuery, selectedCategory, selectedSubject, selectedResourceType, fetchFiles, appIsLoading, currentScreen]);
+
+  // Update initial load ref when files are first loaded
+  useEffect(() => {
+    if (!isFileLoading && isInitialLoad.current) {
+      isInitialLoad.current = false;
+    }
+  }, [isFileLoading]);
+
+  // Redirect to auth if not on dashboard screen
+  useEffect(() => {
+    if (!appIsLoading && currentScreen === 'auth') {
+      handleNavigateToAuth();
+    }
+  }, [appIsLoading, currentScreen, handleNavigateToAuth]);
 
   // Memoized handlers to prevent unnecessary re-renders
   const handleSearchChange = useCallback((query: string) => {
@@ -164,12 +181,18 @@ export default function Library() {
     };
   }, []);
 
-  if (isPageLoading) {
+  // Show global loading state if app is still loading
+  if (appIsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="large" />
       </div>
     );
+  }
+
+  // Don't render if not on dashboard screen
+  if (currentScreen !== 'dashboard') {
+    return null;
   }
 
   return (
@@ -193,7 +216,7 @@ export default function Library() {
 
       <ResourcesGrid
         files={files}
-        isLoading={isLoading}
+        isLoading={isFileLoading} // Using renamed local loading state
         user={user}
         pagination={pagination}
         onRefresh={handleRefresh}

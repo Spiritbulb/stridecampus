@@ -114,7 +114,7 @@ export default function Home() {
             Stride Campus is where verified students join their campus Space, earn credits by participating, and spend them to boost their voice across the community.
           </p>
           <div className="flex justify-center">
-            <a href="/arena">
+            <a href="/auth">
             <button className="px-8 py-4 bg-[#f23b36] text-white rounded-2xl font-semibold hover:shadow-lg transition-all duration-300 flex items-center justify-center cursor-pointer">
               Join Your Campus <ChevronRight className="ml-2" />
             </button>
@@ -209,7 +209,7 @@ export default function Home() {
           Connect with your campus, earn credits, and make your voice heard.
         </p>
         <div className="flex justify-center">
-          <a href="/arena">
+          <a href="/auth">
           <button className="px-8 py-4 bg-[#f23b36] text-white rounded-2xl font-semibold hover:shadow-lg transition-all duration-300 cursor-pointer">
             Join Now
           </button>

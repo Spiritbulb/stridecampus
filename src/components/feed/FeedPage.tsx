@@ -1,6 +1,6 @@
 'use client';
-import React, { useState, useCallback, useMemo, Suspense } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useApp } from '@/contexts/AppContext';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import FeedHeader from '@/components/feed/main/FeedHeader';
 import FeedSidebar from '@/components/feed/main/FeedSidebar';
@@ -11,10 +11,25 @@ import { Post } from '@/utils/supabaseClient';
 import { useRouter } from 'next/navigation';
 
 export default function FeedPage() {
-  const { user } = useAuth();
+  // Use AppContext for all auth state and navigation
+  const { 
+    user, 
+    isLoading: appIsLoading, 
+    currentScreen, 
+    handleNavigateToAuth, 
+    isAuthenticated 
+  } = useApp();
+
   const [selectedSpace, setSelectedSpace] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('new');
   const router = useRouter();
+  
+  // Redirect to auth if not authenticated
+  useEffect(() => {
+    if (!appIsLoading && !isAuthenticated) {
+      handleNavigateToAuth();
+    }
+  }, [appIsLoading, isAuthenticated, handleNavigateToAuth]);
   
   // Memoize callback functions to prevent unnecessary re-renders
   const handleSpaceChange = useCallback((space: string) => {
@@ -48,16 +63,40 @@ export default function FeedPage() {
     }
   }, [router]);
 
-  const { posts, spaces, isLoading, refetch } = useFeedData(selectedSpace, sortBy, user);
-  const { handleVote, handleShare, joinSpace } = usePostActions(user, refetch);
+  // Only fetch data if user is authenticated
+  const { posts, spaces, isLoading: feedLoading, refetch } = useFeedData(
+    selectedSpace, 
+    sortBy, 
+    isAuthenticated ? user : null
+  );
+  
+  const { handleVote, handleShare, joinSpace } = usePostActions(
+    isAuthenticated ? user : null, 
+    refetch
+  );
 
   // Memoize filtered spaces to avoid recalculating on every render
   const filteredSpaces = useMemo(() => {
     return spaces.filter(space => space.is_public || space.user_role);
   }, [spaces]);
 
-  // Show loading state only on initial load, not during refetches
-  if (isLoading && posts.length === 0) {
+  // Show global loading state if app is still loading
+  if (appIsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="large" />
+      </div>
+    );
+  }
+
+  // Don't render if not on dashboard screen or not authenticated
+  if (!isAuthenticated) {
+    router.push('/auth')
+    return null;
+  }
+
+  // Show feed loading state only on initial load, not during refetches
+  if (feedLoading && posts.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="large" />
@@ -85,7 +124,7 @@ export default function FeedPage() {
             onShare={handleShare}
             user={user}
             onShowCreatePost={openCreatePost}
-            isLoading={isLoading}
+            isLoading={feedLoading}
           />
         </div>
 

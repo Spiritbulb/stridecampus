@@ -8,13 +8,13 @@ import FeedSidebar from '@/components/feed/main/FeedSidebar';
 import PostCard from '@/components/feed/main/PostCard'; // Assuming you have a PostCard component
 import { usePostActions } from '@/hooks/usePostActions';
 import { useMemberCounts } from '@/components/feed/main/deps/sidebar';
-import { useAuth } from '@/hooks/useAuth';
+import { useApp } from '@/contexts/AppContext';
 import { Plus, Filter, TrendingUp, Clock, Users } from 'lucide-react';
 
 export default function SpacePage() {
   const params = useParams();
   const slug = params.slug as string;
-  const user = useAuth().user
+  const { user } = useApp()
   const [sortBy, setSortBy] = useState<'new' | 'hot'>('new');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>();

@@ -1,4 +1,3 @@
-// app/page.tsx - Updated to check email verification from auth user
 'use client';
 import React, { Suspense, useCallback, useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,17 +8,25 @@ import { supabase } from '@/utils/supabaseClient';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { Layout } from '@/components/layout/Layout';
 import { SplashScreen } from '@/components/onboarding/SplashScreen';
-import { AuthScreen } from '@/components/onboarding/AuthScreen';
 import { WelcomeScreen } from '@/components/onboarding/WelcomeScreen';
 import { Dashboard } from '@/components/dashboard/Dashboard';
 import { useApp } from '@/contexts/AppContext';
-import { useSearchParams } from 'next/navigation';
-import { EmailVerificationModal } from '@/components/auth/EmailVerificationModal'; // New component
+import { useSearchParams, useRouter } from 'next/navigation';
+import { EmailVerificationModal } from '@/components/auth/EmailVerificationModal';
 
 // Create a wrapper component to use useSearchParams
 function IndexContent() {
-  const { currentScreen, isTransitioning, handleScreenTransition, handleSuccessfulSignUp } = useApp();
-  const { session, user, loading: authLoading, signUp, signIn } = useAuth();
+  const router = useRouter();
+  const { 
+    currentScreen, 
+    isTransitioning, 
+    handleScreenTransition, 
+    handleNavigateToAuth,
+    requiresEmailVerification,
+    checkAuthState
+  } = useApp();
+  
+  const { session, user, loading: authLoading } = useAuth();
   const userId = user?.id;
   
   // State for email verification modal
@@ -32,22 +39,45 @@ function IndexContent() {
     loading: transactionsLoading, 
     error: transactionsError,
     refetch: refetchTransactions,
-    createTransaction,
     createTransactionWithCreditsUpdate
   } = useTransactions(userId);
   
   const { leaderboard, loading: leaderboardLoading } = useLeaderboard(userId);
   const searchParams = useSearchParams();
-  const referralCode = searchParams.get('ref');
 
-  // Check if user needs email verification
+  // Check auth state when component mounts or returns from auth page
   useEffect(() => {
-    if (session?.user && !session.user.email_confirmed_at && currentScreen === 'dashboard') {
+    checkAuthState();
+  }, [checkAuthState]);
+
+  // Check if user needs email verification (using context state)
+  useEffect(() => {
+    if (requiresEmailVerification && currentScreen === 'dashboard') {
       setShowEmailVerification(true);
     } else {
       setShowEmailVerification(false);
     }
-  }, [session, currentScreen]);
+  }, [requiresEmailVerification, currentScreen]);
+
+  // Handle successful sign up from auth page
+  useEffect(() => {
+    const message = searchParams.get('message');
+    if (message === 'verify-email' && user) {
+      toast({
+        title: 'Check your email',
+        description: 'We sent a verification link to your email address.',
+      });
+    }
+    
+    // Check if we just returned from auth with a success
+    const success = searchParams.get('success');
+    if (success === 'true') {
+      toast({
+        title: 'Success!',
+        description: 'Authentication completed successfully.',
+      });
+    }
+  }, [searchParams, user]);
 
   const handleResendVerification = useCallback(async () => {
     if (!session?.user?.email) return;
@@ -76,55 +106,6 @@ function IndexContent() {
     }
   }, [session]);
 
-  const handleSignUp = useCallback(async (email: string, password: string, username: string) => {
-    try {
-      const { error } = await signUp(email, password, username, referralCode || undefined);
-      if (error) throw error;
-
-      // Create a welcome bonus transaction if sign up is successful
-      if (userId) {
-        await createTransaction({
-          amount: 100, // Welcome bonus
-          description: 'Welcome bonus',
-          type: 'bonus',
-          reference_id: `welcome_bonus_${userId}`, // Prevent duplicate welcome bonuses
-        });
-      }
-
-      handleSuccessfulSignUp();
-      toast({
-        title: 'Welcome!',
-        description: 'Account created successfully. You received 100 credits!',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to sign up',
-        variant: 'destructive'
-      });
-      throw error;
-    }
-  }, [signUp, handleSuccessfulSignUp, referralCode, userId, createTransaction]);
-
-  const handleSignIn = useCallback(async (email: string, password: string) => {
-    try {
-      const { error } = await signIn(email, password);
-      if (error) throw error;
-      
-      toast({
-        title: 'Welcome back!',
-        description: 'Signed in successfully.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to sign in',
-        variant: 'destructive'
-      });
-      throw error;
-    }
-  }, [signIn]);
-
   // Helper function to create transactions with proper error handling
   const handleCreateTransaction = useCallback(async (
     amount: number,
@@ -132,7 +113,7 @@ function IndexContent() {
     type: 'earned' | 'spent' | 'bonus' | 'refund',
     referenceId?: string
   ) => {
-    if (!user) return;
+    if (!user) return false;
 
     try {
       const newBalance = user.credits + amount;
@@ -174,7 +155,7 @@ function IndexContent() {
   }, [user, createTransactionWithCreditsUpdate]);
 
   // Show error toast if transactions fail to load
-  React.useEffect(() => {
+  useEffect(() => {
     if (transactionsError) {
       toast({
         title: 'Failed to Load Transactions',
@@ -184,11 +165,13 @@ function IndexContent() {
     }
   }, [transactionsError]);
 
-  if (authLoading && transactionsLoading && leaderboardLoading) {
+  // Show loading state while initializing
+  if (authLoading && !user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
           <LoadingSpinner size="large" />
+          <p className="text-muted-foreground">Loading application...</p>
         </div>
       </div>
     );
@@ -198,17 +181,6 @@ function IndexContent() {
     <Layout showNavigation={currentScreen === 'dashboard'}>
       <div className={`transition-opacity duration-300 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
         
-        {currentScreen === 'auth' && (
-          <AuthScreen 
-            onSignUp={handleSignUp}
-            onSignIn={handleSignIn}
-            onBack={() => handleScreenTransition('splash')}
-            user={user}
-            referralCode={referralCode || undefined}
-            isLoading={authLoading}
-          />
-        )}
-        
         {currentScreen === 'welcome-credits' && user && (
           <WelcomeScreen 
             credits={user.credits}
@@ -216,7 +188,7 @@ function IndexContent() {
           />
         )}
         
-        {currentScreen === 'dashboard' && user && (
+        {currentScreen === 'dashboard' || currentScreen === 'splash' && user && (
           <Suspense fallback={
             <div className="flex justify-center items-center h-64">
               <LoadingSpinner size="large" />
@@ -244,6 +216,13 @@ function IndexContent() {
               email={session?.user?.email}
             />
           </Suspense>
+        )}
+
+        {/* Show loading state when transitioning between screens */}
+        {isTransitioning && (
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
+            <LoadingSpinner size="large" />
+          </div>
         )}
       </div>
     </Layout>

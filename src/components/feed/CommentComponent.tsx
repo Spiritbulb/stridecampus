@@ -1,6 +1,5 @@
 'use client';
 import React, { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/utils/supabaseClient';
 import { Comment } from '@/utils/supabaseClient';
 import { LibraryFile } from '@/components/library/types';
@@ -16,6 +15,7 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import ResourceSelector from './ResourceSelector';
+import { useApp } from '@/contexts/AppContext';
 
 interface CommentComponentProps {
   comment: Comment;
@@ -30,7 +30,7 @@ export default function CommentComponent({
   onCommentAdded, 
   depth = 0 
 }: CommentComponentProps) {
-  const { user } = useAuth();
+  const { user } = useApp();
   const [isReplying, setIsReplying] = useState(false);
   const [replyContent, setReplyContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);

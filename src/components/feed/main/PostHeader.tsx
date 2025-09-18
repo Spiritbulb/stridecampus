@@ -1,5 +1,4 @@
 import { Post, User } from '@/utils/supabaseClient';
-import { useAuth } from '@/hooks/useAuth';
 import { formatDistanceToNow } from 'date-fns';
 import { User2, Pin, MoreHorizontal } from 'lucide-react';
 

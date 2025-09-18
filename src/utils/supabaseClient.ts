@@ -141,6 +141,7 @@ export interface Notification {
   created_at: string;
   recipient_id: string;
   sender_id: string;
+  user_id: string;
 }
 
 export interface CreditTransaction {

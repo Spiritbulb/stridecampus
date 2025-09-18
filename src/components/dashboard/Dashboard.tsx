@@ -6,7 +6,7 @@ import { Leaderboard } from './Leaderboard';
 import { QuickActions } from './QuickActions';
 import { QUICK_ACTIONS } from './deps/actions';
 import { User } from '@/utils/supabaseClient';
-import MyLibrary from '../library/MyLibrary';
+import {MyLibrary} from '../library/MyLibrary';
 
 interface DashboardProps {
   user: User;
@@ -153,7 +153,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, transactions, leader
           
         </div>
         {/* Library */}
-          <MyLibrary/>
+          <MyLibrary user={user}/>
       </div>
     </div>
   );

@@ -1,16 +1,14 @@
 'use client';
-import React, { useState, useCallback, useMemo, Suspense, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useApp } from '@/contexts/AppContext';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import PostsList from '@/components/feed/main/ProfilePostsList';
 import { usePostActions } from '@/hooks/usePostActions';
 import { Post, User, Notification } from '@/utils/supabaseClient';
 import { fetchProfileData } from './server';
 import { supabase } from '@/utils/supabaseClient';
-import dynamic from 'next/dynamic';
 import { Calendar, MapPin, Link as LinkIcon, MoreHorizontal, Plus, User2, Camera, X } from 'lucide-react';
 import PostCard from '@/components/feed/main/ProfilePostCard';
-import { profile } from 'console';
 import { useRouter } from 'next/navigation';
 
 interface ProfileData {
@@ -28,21 +26,21 @@ interface UserProfileClientProps {
   profileData: ProfileData | null;
 }
 
-const ModalPlaceholder = () => (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <LoadingSpinner size="small" />
-  </div>
-);
-
 export default function UserProfileClient({ profileData: initialProfileData }: UserProfileClientProps) {
-  const { user: currentUser } = useAuth();
+  // Use AppContext for all auth state and navigation
+  const { 
+    user: currentUser, 
+    isLoading: appIsLoading, 
+    currentScreen, 
+    handleNavigateToAuth, 
+    isAuthenticated 
+  } = useApp();
+
   const [profileData, setProfileData] = useState(initialProfileData);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [activeTab, setActiveTab] = useState<'posts' | 'replies' | 'resources'>('posts');
   const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-
-  
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
@@ -59,15 +57,23 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
   const router = useRouter();
 
   const openCreatePost = useCallback(() => {
-      router.push('/create?type=post');
-    }, [router]);
+    router.push('/create?type=post');
+  }, [router]);
 
   const openCreateSpace = useCallback(() => {
-      router.push('/create?type=space');
-    }, [router]);
+    router.push('/create?type=space');
+  }, [router]);
 
+  // Redirect to auth if not authenticated and trying to access auth-required features
+  useEffect(() => {
+    // Only redirect if app has finished loading and user is definitely not authenticated
+    // Allow viewing profiles without authentication, but some features won't be available
+    if (!appIsLoading && !isAuthenticated && (isEditModalOpen || isFollowLoading)) {
+      handleNavigateToAuth();
+    }
+  }, [appIsLoading, isAuthenticated, handleNavigateToAuth, isEditModalOpen, isFollowLoading]);
 
-  // Add this useEffect to initialize form data when profile data changes
+  // Initialize form data when profile data changes
   useEffect(() => {
     if (profileData) {
       setEditFormData({
@@ -81,11 +87,186 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
     }
   }, [profileData]);
 
+  // Initialize and sync server data with client state
+  useEffect(() => {
+    if (initialProfileData && !isInitialized) {
+      setProfileData(initialProfileData);
+      setIsInitialized(true);
+    }
+  }, [initialProfileData, isInitialized]);
 
-  // Add these handler functions
-  const handleEditProfile = () => {
+  // Refetch follow status when current user changes
+  useEffect(() => {
+    const checkFollowStatus = async () => {
+      if (!currentUser || !profileData || currentUser.id === profileData.user.id) {
+        return;
+      }
+
+      try {
+        const { data: followData, error } = await supabase
+          .from('followers')
+          .select('*')
+          .eq('follower_id', currentUser.id)
+          .eq('followed_id', profileData.user.id)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error checking follow status:', error);
+          return;
+        }
+
+        const isFollowing = !!followData;
+        
+        setProfileData(prev => prev ? {
+          ...prev,
+          isFollowing
+        } : null);
+      } catch (error) {
+        console.error('Error in follow status check:', error);
+      }
+    };
+
+    if (isInitialized && currentUser && profileData && isAuthenticated) {
+      checkFollowStatus();
+    }
+  }, [currentUser, isInitialized, profileData?.user.id, isAuthenticated]);
+
+  const pinnedPost = useMemo(() => {
+    if (!profileData) return null;
+    return profileData.posts.find(post => post.pinned);
+  }, [profileData]);
+
+  const notifyUser = useCallback(async (notification: Omit<Notification, 'id' | 'created_at'>) => {
+    if (!isAuthenticated) return;
+    
+    const { error } = await supabase.from('notifications').insert(notification);
+    if (error) {
+      console.error('Error notifying user:', error);
+    }
+  }, [isAuthenticated]);
+
+  const handlePinToggle = useCallback(async () => {
+    if (!currentUser || !profileData || !pinnedPost || !isAuthenticated) return;
+
+    const { error } = await supabase
+      .from('posts')
+      .update({ pinned: !pinnedPost.pinned })
+      .eq('id', pinnedPost.id);
+
+    if (error) {
+      console.error('Error updating pinned status:', error);
+    } else {
+      setProfileData(prev => prev ? {
+        ...prev,
+        posts: prev.posts.map(post => 
+          post.id === pinnedPost.id 
+            ? { ...post, pinned: !post.pinned }
+            : post
+        )
+      } : null);
+    }
+  }, [currentUser, profileData, pinnedPost, isAuthenticated]);
+
+  // Only initialize post actions if user is authenticated
+  const { handleVote, handleShare } = usePostActions(
+    isAuthenticated ? currentUser : null, 
+    () => {
+      // Optional: Add refetch logic if needed
+    }
+  );
+
+  const handleFollow = useCallback(async () => {
+    if (!currentUser || !profileData || isFollowLoading || !isAuthenticated) {
+      if (!isAuthenticated) {
+        handleNavigateToAuth();
+      }
+      return;
+    }
+    
+    setIsFollowLoading(true);
+    try {
+      if (profileData.isFollowing) {
+        // Unfollow
+        const { error } = await supabase
+          .from('followers')
+          .delete()
+          .eq('follower_id', currentUser.id)
+          .eq('followed_id', profileData.user.id);
+        
+        if (error) throw error;
+        
+        setProfileData(prev => prev ? {
+          ...prev,
+          isFollowing: false,
+          stats: {
+            ...prev.stats,
+            followersCount: Math.max(0, prev.stats.followersCount - 1)
+          }
+        } : null);
+      } else {
+        // Follow
+        const { error } = await supabase
+          .from('followers')
+          .insert({
+            follower_id: currentUser.id,
+            followed_id: profileData.user.id
+          });
+        
+        if (error) {
+          // Check if it's a duplicate key error (already following)
+          if (error.code === '23505') {
+            // Already following, just update the UI
+            setProfileData(prev => prev ? {
+              ...prev,
+              isFollowing: true
+            } : null);
+            return;
+          }
+          throw error;
+        }
+        
+        setProfileData(prev => prev ? {
+          ...prev,
+          isFollowing: true,
+          stats: {
+            ...prev.stats,
+            followersCount: prev.stats.followersCount + 1
+          }
+        } : null);
+
+        // Notify user
+        notifyUser({
+          user_id: profileData.user.id,
+          recipient_id: profileData.user.id,
+          sender_id: currentUser.id,
+          type: 'follow',
+          title: 'New Follower',
+          message: `${currentUser.full_name} started following you.`,
+          is_read: false
+        });
+      }
+    } catch (error) {
+      console.error('Error following/unfollowing user:', error);
+      // Optionally show user-friendly error message
+    } finally {
+      setIsFollowLoading(false);
+    }
+  }, [currentUser, profileData, notifyUser, isFollowLoading, isAuthenticated, handleNavigateToAuth]);
+
+  const selectPost = useCallback((post: Post | null) => {
+    if (post) {
+      // Redirect to the individual post page
+      router.push(`/post/${post.id}`);
+    }
+  }, [router]);
+
+  const handleEditProfile = useCallback(() => {
+    if (!isAuthenticated) {
+      handleNavigateToAuth();
+      return;
+    }
     setIsEditModalOpen(true);
-  };
+  }, [isAuthenticated, handleNavigateToAuth]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -159,7 +340,7 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
   };
 
   const handleSaveProfile = async () => {
-    if (!currentUser || !profileData) return;
+    if (!currentUser || !profileData || !isAuthenticated) return;
     
     setIsUploading(true);
     
@@ -208,167 +389,6 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
     }
   };
 
-  // Initialize and sync server data with client state
-  useEffect(() => {
-    if (initialProfileData && !isInitialized) {
-      setProfileData(initialProfileData);
-      setIsInitialized(true);
-    }
-  }, [initialProfileData, isInitialized]);
-
-  // Refetch follow status when current user changes
-  useEffect(() => {
-    const checkFollowStatus = async () => {
-      if (!currentUser || !profileData || currentUser.id === profileData.user.id) {
-        return;
-      }
-
-      try {
-        const { data: followData, error } = await supabase
-          .from('followers')
-          .select('*')
-          .eq('follower_id', currentUser.id)
-          .eq('followed_id', profileData.user.id)
-          .single();
-
-        if (error && error.code !== 'PGRST116') {
-          console.error('Error checking follow status:', error);
-          return;
-        }
-
-        const isFollowing = !!followData;
-        
-        setProfileData(prev => prev ? {
-          ...prev,
-          isFollowing
-        } : null);
-      } catch (error) {
-        console.error('Error in follow status check:', error);
-      }
-    };
-
-    if (isInitialized && currentUser && profileData) {
-      checkFollowStatus();
-    }
-  }, [currentUser, isInitialized, profileData?.user.id]);
-
-  const pinnedPost = useMemo(() => {
-    if (!profileData) return null;
-    return profileData.posts.find(post => post.pinned);
-  }, [profileData]);
-
-  const notifyUser = useCallback(async (notification: Omit<Notification, 'id' | 'created_at'>) => {
-    const { error } = await supabase.from('notifications').insert(notification);
-    if (error) {
-      console.error('Error notifying user:', error);
-    }
-  }, []);
-
-  const handlePinToggle = useCallback(async () => {
-    if (!currentUser || !profileData || !pinnedPost) return;
-
-    const { error } = await supabase
-      .from('posts')
-      .update({ pinned: !pinnedPost.pinned })
-      .eq('id', pinnedPost.id);
-
-    if (error) {
-      console.error('Error updating pinned status:', error);
-    } else {
-      setProfileData(prev => prev ? {
-        ...prev,
-        posts: prev.posts.map(post => 
-          post.id === pinnedPost.id 
-            ? { ...post, pinned: !post.pinned }
-            : post
-        )
-      } : null);
-    }
-  }, [currentUser, profileData, pinnedPost]);
-
-  const { handleVote, handleShare } = usePostActions(currentUser, () => {
-    // Optional: Add refetch logic if needed
-  });
-
-  const handleFollow = useCallback(async () => {
-    if (!currentUser || !profileData || isFollowLoading) return;
-    
-    setIsFollowLoading(true);
-    try {
-      if (profileData.isFollowing) {
-        // Unfollow
-        const { error } = await supabase
-          .from('followers')
-          .delete()
-          .eq('follower_id', currentUser.id)
-          .eq('followed_id', profileData.user.id);
-        
-        if (error) throw error;
-        
-        setProfileData(prev => prev ? {
-          ...prev,
-          isFollowing: false,
-          stats: {
-            ...prev.stats,
-            followersCount: Math.max(0, prev.stats.followersCount - 1)
-          }
-        } : null);
-      } else {
-        // Follow
-        const { error } = await supabase
-          .from('followers')
-          .insert({
-            follower_id: currentUser.id,
-            followed_id: profileData.user.id
-          });
-        
-        if (error) {
-          // Check if it's a duplicate key error (already following)
-          if (error.code === '23505') {
-            // Already following, just update the UI
-            setProfileData(prev => prev ? {
-              ...prev,
-              isFollowing: true
-            } : null);
-            return;
-          }
-          throw error;
-        }
-        
-        setProfileData(prev => prev ? {
-          ...prev,
-          isFollowing: true,
-          stats: {
-            ...prev.stats,
-            followersCount: prev.stats.followersCount + 1
-          }
-        } : null);
-
-        // Notify user
-        notifyUser({
-          recipient_id: profileData.user.id,
-          sender_id: currentUser.id,
-          type: 'follow',
-          title: 'New Follower',
-          message: `${currentUser.full_name} started following you.`,
-          is_read: false
-        });
-      }
-    } catch (error) {
-      console.error('Error following/unfollowing user:', error);
-      // Optionally show user-friendly error message
-    } finally {
-      setIsFollowLoading(false);
-    }
-  }, [currentUser, profileData, notifyUser, isFollowLoading]);
-
-  const selectPost = useCallback((post: Post | null) => {
-      if (post) {
-        // Redirect to the individual post page
-        router.push(`/post/${post.id}`);
-      }
-    }, [router]);
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { 
@@ -377,13 +397,22 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
     });
   };
 
+  // Show global loading state
+  if (appIsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="large" />
+      </div>
+    );
+  }
+
   if (!profileData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">User not found</h1>
           <p className="text-gray-600">This account doesn't exist</p>
-          {!currentUser && (
+          {!isAuthenticated && (
             <a href="/arena" className="mt-4 inline-block px-4 py-2 bg-[#f23b36] text-white rounded-lg hover:shadow-md transition-all">
                 Go to Arena
             </a>
@@ -394,7 +423,7 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
   }
 
   const { user: profileUser, posts, stats, isFollowing } = profileData;
-  const isOwnProfile = currentUser?.id === profileUser.id;
+  const isOwnProfile = isAuthenticated && currentUser?.id === profileUser.id;
   const defaultAvatar = '/default-avatar.png';
   const bannerUrl = profileUser.banner_url || '';
 
@@ -414,7 +443,7 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
         
         {/* Action Buttons */}
         <div className="px-4 sm:px-6 flex justify-end mt-3">
-          {!isOwnProfile && currentUser && (
+          {!isOwnProfile && isAuthenticated && (
             <button
               onClick={handleFollow}
               disabled={isFollowLoading}
@@ -427,29 +456,37 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
               {isFollowLoading ? 'Loading...' : isFollowing ? 'Following' : 'Follow'}
             </button>
           )}
+          {!isOwnProfile && !isAuthenticated && (
+            <button
+              onClick={handleNavigateToAuth}
+              className="px-4 py-2 border rounded-full text-sm font-medium transition-colors bg-[#f23b36] text-white border-transparent hover:bg-red-600"
+            >
+              Follow
+            </button>
+          )}
           {isOwnProfile && (
             <>
               <button
-      onClick={handleEditProfile}
-      className="px-4 py-1.5 border rounded-lg text-sm font-medium bg-white text-[#f23b36] border-[#f23b36] hover:bg-[#f23b36] transition-colors cursor-pointer hover:text-white"
-    >
-      Edit Profile
-    </button>
+                onClick={handleEditProfile}
+                className="px-4 py-1.5 border rounded-lg text-sm font-medium bg-white text-[#f23b36] border-[#f23b36] hover:bg-[#f23b36] transition-colors cursor-pointer hover:text-white"
+              >
+                Edit Profile
+              </button>
               <div className="ml-2 relative">
                 <div className="relative group">
-  <div className="p-1.5 border rounded-lg text-[#f23b36] border-[#f23b36] hover:bg-[#f23b36] hover:text-white transition-colors cursor-pointer flex items-center">
-    <Plus className="w-5 h-5 transform group-hover:rotate-45 transition-transform" />
-    <span className="ml-1">Create</span>
-  </div>
-  <div className="absolute top-full left-0 mt-1 w-full bg-white border border-[#f23b36] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
-    <div className="p-2 hover:bg-[#f23b36] hover:text-white cursor-pointer" onClick={openCreatePost}>
-      Post
-    </div>
-    <div className="p-2 hover:bg-[#f23b36] hover:text-white cursor-pointer" onClick={openCreateSpace}>
-      Space
-    </div>
-  </div>
-</div>
+                  <div className="p-1.5 border rounded-lg text-[#f23b36] border-[#f23b36] hover:bg-[#f23b36] hover:text-white transition-colors cursor-pointer flex items-center">
+                    <Plus className="w-5 h-5 transform group-hover:rotate-45 transition-transform" />
+                    <span className="ml-1">Create</span>
+                  </div>
+                  <div className="absolute top-full left-0 mt-1 w-full bg-white border border-[#f23b36] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
+                    <div className="p-2 hover:bg-[#f23b36] hover:text-white cursor-pointer" onClick={openCreatePost}>
+                      Post
+                    </div>
+                    <div className="p-2 hover:bg-[#f23b36] hover:text-white cursor-pointer" onClick={openCreateSpace}>
+                      Space
+                    </div>
+                  </div>
+                </div>
               </div>
             </>
           )}
@@ -578,173 +615,145 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
         )}
       </div>
 
-      {/* Edit Profile Modal */}
-{isEditModalOpen && (
-  <div className="fixed inset-0 backdrop-blur flex items-center justify-center z-50 p-4 mb-16">
-    <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-      <div className="p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold">Edit Profile</h2>
-          <button 
-            onClick={() => setIsEditModalOpen(false)}
-            className="text-gray-500 hover:text-gray-700 cursor-pointer"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-        
-        {/* Banner Upload */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Banner</label>
-          <div className="relative h-32 rounded-lg overflow-hidden bg-gray-200">
-            {bannerPreview ? (
-              <img src={bannerPreview} alt="Banner preview" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                <Camera className="w-8 h-8 text-gray-400" />
+      {/* Edit Profile Modal - Only render if authenticated */}
+      {isEditModalOpen && isAuthenticated && (
+        <div className="fixed inset-0 backdrop-blur flex items-center justify-center z-50 p-4 mb-16">
+          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold">Edit Profile</h2>
+                <button 
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="text-gray-500 hover:text-gray-700 cursor-pointer"
+                >
+                  <X className="w-6 h-6" />
+                </button>
               </div>
-            )}
-            {/* Previous Banner */}
-            {profileUser.banner_url && !bannerPreview && (
-              <img src={profileUser.banner_url} alt="Current Banner" className="w-full h-full object-cover absolute top-0 left-0" />
-            )}
+              
+              {/* Banner Upload */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Banner</label>
+                <div className="relative h-32 rounded-lg overflow-hidden bg-gray-200">
+                  {bannerPreview ? (
+                    <img src={bannerPreview} alt="Banner preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                      <Camera className="w-8 h-8 text-gray-400" />
+                    </div>
+                  )}
+                  {/* Previous Banner */}
+                  {profileUser.banner_url && !bannerPreview && (
+                    <img src={profileUser.banner_url} alt="Current Banner" className="w-full h-full object-cover absolute top-0 left-0" />
+                  )}
 
-            <label className="absolute inset-0 flex items-center justify-center bg-opacity-0 hover:bg-opacity-50 cursor-pointer transition-all">
-              <Camera className="w-6 h-6 text-white opacity-0 hover:opacity-100" />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleBannerChange}
-                className="hidden"
-              />
-            </label>
-            {bannerPreview && (
-              <button
-                onClick={removeBanner}
-                className="absolute top-2 right-2 p-1 bg-black bg-opacity-50 rounded-full text-white hover:bg-opacity-70"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </div>
-        
-        {/* Avatar Upload */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Profile Picture</label>
-          <div className="relative w-24 h-24 rounded-full overflow-hidden bg-gray-200">
-            {avatarPreview ? (
-              <img src={avatarPreview} alt="Avatar preview" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                <Camera className="w-8 h-8 text-gray-400" />
+                  <label className="absolute inset-0 flex items-center justify-center bg-opacity-0 hover:bg-opacity-50 cursor-pointer transition-all">
+                    <Camera className="w-6 h-6 text-white opacity-0 hover:opacity-100" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleBannerChange}
+                      className="hidden"
+                    />
+                  </label>
+                  {bannerPreview && (
+                    <button
+                      onClick={removeBanner}
+                      className="absolute top-2 right-2 p-1 bg-black bg-opacity-50 rounded-full text-white hover:bg-opacity-70"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               </div>
-            )}
-            {/* Previous Avatar */}
-            {profileData?.user.avatar_url && !avatarPreview && (
-              <img src={profileData.user.avatar_url} alt="Previous Avatar" className="w-full h-full object-cover" />
-            )}
-            <label className="absolute inset-0 flex items-center justify-center bg-opacity-0 hover:bg-opacity-50 cursor-pointer transition-all rounded-full">
-              <Camera className="w-6 h-6 text-white opacity-0 hover:opacity-100" />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarChange}
-                className="hidden"
-              />
-            </label>
-            {avatarPreview && (
-              <button
-                onClick={removeAvatar}
-                className="absolute top-3 right-3 p-1 bg-black bg-opacity-50 rounded-full text-white hover:bg-opacity-70"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            )}
+              
+              {/* Avatar Upload */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Profile Picture</label>
+                <div className="relative w-24 h-24 rounded-full overflow-hidden bg-gray-200">
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt="Avatar preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                      <Camera className="w-8 h-8 text-gray-400" />
+                    </div>
+                  )}
+                  {/* Previous Avatar */}
+                  {profileData?.user.avatar_url && !avatarPreview && (
+                    <img src={profileData.user.avatar_url} alt="Previous Avatar" className="w-full h-full object-cover" />
+                  )}
+                  <label className="absolute inset-0 flex items-center justify-center bg-opacity-0 hover:bg-opacity-50 cursor-pointer transition-all rounded-full">
+                    <Camera className="w-6 h-6 text-white opacity-0 hover:opacity-100" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                    />
+                  </label>
+                  {avatarPreview && (
+                    <button
+                      onClick={removeAvatar}
+                      className="absolute top-3 right-3 p-1 bg-black bg-opacity-50 rounded-full text-white hover:bg-opacity-70"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Form Fields */}
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    id="full_name"
+                    name="full_name"
+                    value={editFormData.full_name}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#f23b36]"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="school_name" className="block text-sm font-medium text-gray-700 mb-1">
+                    School Name
+                  </label>
+                  <input
+                    type="text"
+                    id="school_name"
+                    name="school_name"
+                    value={editFormData.school_name}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#f23b36]"
+                  />
+                </div>
+                
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  disabled={isUploading}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveProfile}
+                  disabled={isUploading}
+                  className="px-4 py-2 bg-[#f23b36] text-white rounded-md text-sm font-medium hover:bg-red-600 disabled:opacity-50"
+                >
+                  {isUploading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-        
-        {/* Form Fields */}
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-1">
-              Full Name
-            </label>
-            <input
-              type="text"
-              id="full_name"
-              name="full_name"
-              value={editFormData.full_name}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#f23b36]"
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-              Username
-            </label>
-            <input
-              type="text"
-              id="username"
-              name="username"
-              value={editFormData.username}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#f23b36]"
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-1">
-              Bio
-            </label>
-            <textarea
-              id="bio"
-              name="bio"
-              value={editFormData.bio}
-              onChange={handleInputChange}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#f23b36]"
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="school_name" className="block text-sm font-medium text-gray-700 mb-1">
-              School Name
-            </label>
-            <input
-              type="text"
-              id="school_name"
-              name="school_name"
-              value={editFormData.school_name}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#f23b36]"
-            />
-          </div>
-          
-        </div>
-        
-        {/* Action Buttons */}
-        <div className="flex justify-end space-x-3 mt-6">
-          <button
-            onClick={() => setIsEditModalOpen(false)}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-            disabled={isUploading}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSaveProfile}
-            disabled={isUploading}
-            className="px-4 py-2 bg-[#f23b36] text-white rounded-md text-sm font-medium hover:bg-red-600 disabled:opacity-50"
-          >
-            {isUploading ? 'Saving...' : 'Save Changes'}
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
     </div>
   );
 }
