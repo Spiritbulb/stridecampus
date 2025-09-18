@@ -12,13 +12,7 @@ const VALID_SCHOOL_DOMAINS = [
 
 // Common non-educational domains to reject
 const INVALID_DOMAINS = [
-  'gmail.com',
-  'yahoo.com',
-  'hotmail.com',
-  'outlook.com',
-  'icloud.com',
-  'aol.com',
-  'protonmail.com',
+  ''
   // Add more personal email domains
 ];
 
@@ -54,7 +48,7 @@ export function isValidSchoolEmail(email: string): { isValid: boolean; message?:
   // If we're not sure, allow but warn (you can make this stricter)
   return { 
     isValid: true,
-    message: 'Please ensure this is your official school email address'
+    message: 'You will need to verify this email address'
   };
 }
 

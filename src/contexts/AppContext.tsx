@@ -195,7 +195,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       justSignedUp: true,
       lastAuthCheck: Date.now()
     }});
-    handleScreenTransition('welcome-credits');
+    if (session?.user?.email_confirmed_at) {
+      handleScreenTransition('welcome-credits');
+    }
   }, [handleScreenTransition]);
 
   // Single effect to handle all auth state changes
@@ -250,8 +252,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Handle auth state changes
     if (session && user) {
       // User is authenticated
-      if (state.justSignedUp) {
-        // Already handled in handleSuccessfulSignUp
+      if (state.justSignedUp) { 
+
         return;
       }
       

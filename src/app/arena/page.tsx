@@ -1,6 +1,6 @@
-// app/page.tsx - Updated to use enhanced useTransactions hook
+// app/page.tsx - Updated to check email verification from auth user
 'use client';
-import React, { Suspense, useCallback, useState } from 'react';
+import React, { Suspense, useCallback, useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
@@ -14,12 +14,17 @@ import { WelcomeScreen } from '@/components/onboarding/WelcomeScreen';
 import { Dashboard } from '@/components/dashboard/Dashboard';
 import { useApp } from '@/contexts/AppContext';
 import { useSearchParams } from 'next/navigation';
+import { EmailVerificationModal } from '@/components/auth/EmailVerificationModal'; // New component
 
 // Create a wrapper component to use useSearchParams
 function IndexContent() {
   const { currentScreen, isTransitioning, handleScreenTransition, handleSuccessfulSignUp } = useApp();
   const { session, user, loading: authLoading, signUp, signIn } = useAuth();
   const userId = user?.id;
+  
+  // State for email verification modal
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   
   // Enhanced useTransactions hook with additional functionality
   const { 
@@ -34,6 +39,42 @@ function IndexContent() {
   const { leaderboard, loading: leaderboardLoading } = useLeaderboard(userId);
   const searchParams = useSearchParams();
   const referralCode = searchParams.get('ref');
+
+  // Check if user needs email verification
+  useEffect(() => {
+    if (session?.user && !session.user.email_confirmed_at && currentScreen === 'dashboard') {
+      setShowEmailVerification(true);
+    } else {
+      setShowEmailVerification(false);
+    }
+  }, [session, currentScreen]);
+
+  const handleResendVerification = useCallback(async () => {
+    if (!session?.user?.email) return;
+    
+    setIsResending(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: session.user.email,
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'Verification email sent',
+        description: 'Check your inbox for the verification link.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to resend verification email',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsResending(false);
+    }
+  }, [session]);
 
   const handleSignUp = useCallback(async (email: string, password: string, username: string) => {
     try {
@@ -192,6 +233,15 @@ function IndexContent() {
               }}
               onCreateTransaction={handleCreateTransaction}
               onRefetchTransactions={refetchTransactions}
+            />
+            
+            {/* Email Verification Modal */}
+            <EmailVerificationModal
+              isOpen={showEmailVerification}
+              onClose={() => setShowEmailVerification(false)}
+              onResend={handleResendVerification}
+              isResending={isResending}
+              email={session?.user?.email}
             />
           </Suspense>
         )}

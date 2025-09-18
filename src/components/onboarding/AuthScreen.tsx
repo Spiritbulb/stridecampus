@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, ArrowLeft } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Mail, CheckCircle, XCircle } from 'lucide-react';
 import { LoadingSpinner } from '../layout/LoadingSpinner';
 import { isValidSchoolEmail, isUsernameAvailable } from '@/utils/auth';
+import { supabase } from '@/utils/supabaseClient';
 
 // Error Boundary Component
 interface ErrorBoundaryState {
@@ -90,9 +91,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     username?: { valid: boolean; message: string };
     email?: { valid: boolean; message: string };
   }>({});
+  
+  // Email verification state
+  const [showVerification, setShowVerification] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
 
 
-// Real-time username validation
+  // Real-time username validation
   useEffect(() => {
     if (isSignUp && step === 1 && formData.username) {
       const validateUsername = async () => {
@@ -135,6 +141,29 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setLoading(false);
     setError('');
     setValidation({});
+    setShowVerification(false);
+    setVerificationSent(false);
+  };
+
+  const handleResendVerification = async () => {
+    if (!formData.email) return;
+    
+    setIsResending(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: formData.email,
+      });
+      
+      if (error) throw error;
+      
+      setVerificationSent(true);
+      setError('');
+    } catch (error: any) {
+      setError(error.message || 'Failed to resend verification email');
+    } finally {
+      setIsResending(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -156,6 +185,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         }
 
         await onSignUp(formData.email, formData.password, formData.username, referralCode);
+        
+        // Show verification section after successful sign up
+        setShowVerification(true);
       } else {
         await onSignIn(formData.email, formData.password);
       }
@@ -174,8 +206,113 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     if (step > 1) setStep(step - 1);
   };
 
-  {loading && <LoadingSpinner />}
-  {isLoading && <LoadingSpinner />}
+  // If showing verification section, render that instead of the form
+  if (showVerification) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center p-6 relative overflow-hidden">
+        <button 
+          onClick={() => {
+            setShowVerification(false);
+            resetForm();
+          }}
+          className="absolute top-6 left-6 text-gray-600 hover:text-gray-900 transition-all duration-300 hover:scale-110 rounded-full hover:bg-gray-50"
+        >
+          <ArrowLeft size={24} />
+        </button>
+        
+        <div className="w-full max-w-md relative z-10">
+          <div className="text-center mb-8">
+            <div className="flex justify-center mb-6">
+              <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center">
+                <Mail className="h-8 w-8 text-blue-600" />
+              </div>
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">
+              Verify Your Email
+            </h2>
+            <p className="text-gray-600">
+              We've sent a verification link to{' '}
+              <span className="font-semibold text-gray-900">{formData.email}</span>
+            </p>
+          </div>
+
+          <div className="bg-blue-50 rounded-2xl p-6 mb-8">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                <CheckCircle className="h-6 w-6 text-blue-600 mt-0.5" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">Check your inbox</h3>
+                <p className="text-gray-700 text-sm">
+                  Click the verification link in the email we sent to complete your registration.
+                  The link will expire in 24 hours.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="mb-6 p-4 rounded-2xl bg-red-50 border border-red-200">
+              <p className="text-red-600 text-sm font-medium">
+                {error}
+              </p>
+            </div>
+          )}
+
+          {verificationSent && (
+            <div className="mb-6 p-4 rounded-2xl bg-green-50 border border-green-200">
+              <p className="text-green-600 text-sm font-medium">
+                Verification email sent! Check your inbox.
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <button
+              onClick={handleResendVerification}
+              disabled={isResending}
+              className="w-full py-4 px-6 rounded-2xl font-semibold text-white transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-3"
+              style={{ backgroundColor: '#f23b36' }}
+            >
+              {isResending ? (
+                <>
+                  <LoadingSpinner size="small" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Mail size={20} />
+                  Resend Verification Email
+                </>
+              )}
+            </button>
+
+            <p className="text-center text-gray-600 text-sm">
+              Already verified?{' '}
+              <button
+                onClick={() => window.location.reload()}
+                className="text-blue-600 hover:text-blue-800 font-semibold"
+              >
+                Refresh to continue
+              </button>
+            </p>
+          </div>
+
+          <div className="mt-8 p-4 bg-gray-50 rounded-2xl">
+            <div className="flex items-start gap-3">
+              <XCircle className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm text-gray-600">
+                  <strong>Didn't receive the email?</strong> Check your spam folder or 
+                  ensure you entered the correct email address.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AuthErrorBoundary onReset={resetForm}>
@@ -312,7 +449,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                             (validation.email ? (validation.email.valid ? '#10b981' : '#ef4444') : '#f23b36') : 
                             '#e5e7eb'
                         }}
-                        placeholder="your.email@university.edu"
+                        placeholder="your.email@example.com"
                         required
                       />
                       <div 
