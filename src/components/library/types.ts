@@ -13,6 +13,8 @@ export interface LibraryFile {
   created_at: string;
   resource_type: string;
   youtube_url?: string;
+  url?: string;
+  metadata?: any;
   users: {
     full_name: string;
     school_name: string;

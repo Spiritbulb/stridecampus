@@ -5,7 +5,7 @@ import { Session } from '@supabase/supabase-js';
 import { User } from '@/utils/supabaseClient';
 import { useRouter } from 'next/navigation';
 
-type ScreenType = 'splash' | 'auth' | 'welcome-credits' | 'dashboard';
+type ScreenType = 'auth' | 'welcome-credits' | 'dashboard';
 
 interface AppState {
   currentScreen: ScreenType;
@@ -287,8 +287,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } else {
       // Not authenticated
       dispatch({ type: 'SET_REQUIRES_EMAIL_VERIFICATION', payload: false });
-      if (state.currentScreen !== 'splash' && state.currentScreen !== 'auth') {
-        handleScreenTransition('splash');
+      if (state.currentScreen !== 'dashboard') {
+        handleNavigateToAuth();
       }
     }
   }, [state.session, state.user, state.lastAuthCheck, state.justSignedUp, state.currentScreen, handleScreenTransition]);

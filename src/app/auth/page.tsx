@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
@@ -7,7 +7,8 @@ import { AuthScreen } from '@/components/onboarding/AuthScreen';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { Layout } from '@/components/layout/Layout';
 
-export default function AuthPage() {
+// Create a component that uses useSearchParams and wrap it with Suspense
+function AuthPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const referralCode = searchParams.get('ref');
@@ -24,9 +25,7 @@ export default function AuthPage() {
         title: 'Account created!',
         description: 'Please check your email to verify your account.',
       });
-      
-      // Redirect to verification page or back to home
-      router.push('/?message=verify-email');
+
     } catch (error) {
       toast({
         title: 'Error',
@@ -37,7 +36,7 @@ export default function AuthPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [signUp, referralCode, router]);
+  }, [signUp, referralCode]);
 
   const handleSignIn = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
@@ -51,7 +50,7 @@ export default function AuthPage() {
       });
       
       // Redirect to dashboard
-      router.push('/');
+      router.push('/arena');
     } catch (error) {
       toast({
         title: 'Error',
@@ -87,5 +86,18 @@ export default function AuthPage() {
         isLoading={isLoading || authLoading}
       />
     </Layout>
+  );
+}
+
+// Main export with Suspense boundary
+export default function AuthPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <LoadingSpinner size="large" />
+      </div>
+    }>
+      <AuthPageContent />
+    </Suspense>
   );
 }

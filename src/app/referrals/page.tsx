@@ -85,7 +85,7 @@ export default function ReferralsPage() {
   };
 
   const copyReferralLink = () => {
-    const referralLink = `${window.location.origin}/arena?ref=${user?.referral_code}`;
+    const referralLink = `${window.location.origin}/auth?ref=${user?.referral_code}`;
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -185,7 +185,7 @@ export default function ReferralsPage() {
           <div className="flex items-center space-x-4">
             <div className="flex-1 bg-gray-100 rounded-lg p-3">
               <code className="text-sm text-gray-800 break-all">
-                {`${window.location.origin}/arena?ref=${user?.referral_code}`}
+                {`${window.location.origin}/auth?ref=${user?.referral_code}`}
               </code>
             </div>
             <button

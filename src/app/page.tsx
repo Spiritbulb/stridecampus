@@ -22,8 +22,10 @@ import {
   Megaphone,
   Star
 } from 'lucide-react';
+import { useApp } from '@/contexts/AppContext';
 
 export default function Home() {
+  const { user } = useApp();
   const features = [
     {
       icon: <Coins className="w-8 h-8" />,
@@ -114,15 +116,21 @@ export default function Home() {
             Stride Campus is where verified students join their campus Space, earn credits by participating, and spend them to boost their voice across the community.
           </p>
           <div className="flex justify-center">
-            <a href="/auth">
+            {user && (
+              <a href="/arena">
             <button className="px-8 py-4 bg-[#f23b36] text-white rounded-2xl font-semibold hover:shadow-lg transition-all duration-300 flex items-center justify-center cursor-pointer">
-              Join Your Campus <ChevronRight className="ml-2" />
+              Continue to Arena <ChevronRight className="ml-2" />
             </button>
             </a>
+            )}
+            {!user && (
+              <a href="/auth">
+            <button className="px-8 py-4 bg-[#f23b36] text-white rounded-2xl font-semibold hover:shadow-lg transition-all duration-300 flex items-center justify-center cursor-pointer">
+              Claim free credits <ChevronRight className="ml-2" />
+            </button>
+            </a>
+            )}
           </div>
-          <p className="text-gray-500 text-center text-sm mt-6">
-            Sign up with your school email and get bonus credits to start with! 🎉
-          </p>
         </div>
         <div className="flex-1 animate-in slide-in-from-right-4 duration-700">
           <img 
@@ -209,11 +217,20 @@ export default function Home() {
           Connect with your campus, earn credits, and make your voice heard.
         </p>
         <div className="flex justify-center">
-          <a href="/auth">
-          <button className="px-8 py-4 bg-[#f23b36] text-white rounded-2xl font-semibold hover:shadow-lg transition-all duration-300 cursor-pointer">
-            Join Now
-          </button>
-          </a>
+          {user && (
+              <a href="/arena">
+            <button className="px-8 py-4 bg-[#f23b36] text-white rounded-2xl font-semibold hover:shadow-lg transition-all duration-300 flex items-center justify-center cursor-pointer">
+              Continue to Arena <ChevronRight className="ml-2" />
+            </button>
+            </a>
+            )}
+            {!user && (
+              <a href="/auth">
+            <button className="px-8 py-4 bg-[#f23b36] text-white rounded-2xl font-semibold hover:shadow-lg transition-all duration-300 flex items-center justify-center cursor-pointer">
+              Claim free credits <ChevronRight className="ml-2" />
+            </button>
+            </a>
+            )}
         </div>
         <p className="text-gray-500 text-sm mt-6">
           Free for students • School email verification required

@@ -9,9 +9,10 @@ import { ResourcesGrid } from '@/components/library/ResourcesGrid';
 import { UploadModal } from '@/components/library/UploadModal';
 import { LibraryFile } from '@/components/library/types';
 import { User } from '@/utils/supabaseClient';
+import { BookOpen, Upload, TrendingUp } from 'lucide-react';
 
 interface MyLibraryProps {
-  user: User
+  user: User;
 }
 
 // Custom hook for debounced value
@@ -31,9 +32,7 @@ const useDebounce = (value: string, delay: number) => {
   return debouncedValue;
 };
 
-export const MyLibrary: React.FC<MyLibraryProps> = ({
-  user,
-}) => {
+export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
   const [files, setFiles] = useState<LibraryFile[]>([]);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,6 +41,12 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({
   const [selectedResourceType, setSelectedResourceType] = useState('all');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [libraryStats, setLibraryStats] = useState({
+    totalFiles: 0,
+    totalSize: 0,
+    subjectCount: {} as Record<string, number>,
+    recentUploads: 0
+  });
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -49,14 +54,42 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({
     pages: 1
   });
 
-  // Debounce search query by 500ms
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
-  
-  // Ref to track if this is the initial load
   const isInitialLoad = useRef(true);
-  
-  // Ref to prevent multiple simultaneous requests
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const calculateLibraryStats = useCallback((filesData: LibraryFile[]) => {
+    const totalFiles = filesData.length;
+    const totalSize = filesData.reduce((sum, file) => sum + file.file_size, 0);
+    
+    // Count files by subject
+    const subjectCount: Record<string, number> = {};
+    filesData.forEach(file => {
+      subjectCount[file.subject] = (subjectCount[file.subject] || 0) + 1;
+    });
+
+    // Count recent uploads (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const recentUploads = filesData.filter(file => 
+      new Date(file.created_at) > sevenDaysAgo
+    ).length;
+
+    setLibraryStats({
+      totalFiles,
+      totalSize,
+      subjectCount,
+      recentUploads
+    });
+  }, []);
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
 
   const fetchUserFiles = useCallback(async (page = 1, resetPage = false) => {
     if (!user?.id) {
@@ -67,21 +100,17 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({
     }
     
     try {
-      console.log('Fetching files for user:', user.id, 'page:', page);
-      // Cancel previous request if it's still ongoing
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
       
-      // Create new abort controller for this request
       abortControllerRef.current = new AbortController();
-      
       setIsLoading(true);
+      
       if (isInitialLoad.current) {
         setIsPageLoading(true);
       }
       
-      // Reset to page 1 if filters changed (not pagination)
       const targetPage = resetPage ? 1 : page;
       
       const result = await getUserFiles(user.id, {
@@ -93,23 +122,52 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({
         limit: pagination.limit
       });
       
-      console.log('API response:', result);
-      
       if (result && 'files' in result && 'pagination' in result) {
-        setFiles(result.files || []);
+        // Format files with proper structure
+        const formattedFiles: LibraryFile[] = (result.files || []).map(file => ({
+          ...file,
+          // For user's own files, populate user info from the user prop
+          users: {
+            full_name: user.full_name || 'You',
+            school_name: user.school_name || '',
+            username: user.username || '',
+            checkmark: user.checkmark || false
+          },
+          // Ensure tags is always an array
+          tags: Array.isArray(file.tags) ? file.tags : 
+          //@ts-ignore
+                typeof file.tags === 'string' ? file.tags.split(',').map(t => t.trim()) : 
+                ['educational'],
+          // Ensure metadata exists
+          metadata: file.metadata || {}
+        }));
+        
+        setFiles(formattedFiles);
         setPagination(prev => ({
           ...prev,
           page: targetPage,
           total: result.pagination?.total || 0,
           pages: result.pagination?.pages || 1
         }));
+
+        // Calculate stats only on initial load or when filters are reset
+        if (resetPage || isInitialLoad.current) {
+          // For stats, we want all files, not just the current page
+          // If this is paginated data, we might need to make a separate call for stats
+          calculateLibraryStats(formattedFiles);
+        }
       } else {
         console.error('Unexpected response format:', result);
         setFiles([]);
+        setLibraryStats({
+          totalFiles: 0,
+          totalSize: 0,
+          subjectCount: {},
+          recentUploads: 0
+        });
       }
       
     } catch (error: any) {
-      // Don't show error if request was aborted
       if (error.name !== 'AbortError') {
         console.error('Error fetching user files:', error);
         toast({
@@ -126,23 +184,20 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({
       }
       abortControllerRef.current = null;
     }
-  }, [user, debouncedSearchQuery, selectedCategory, selectedSubject, selectedResourceType, pagination.limit]);
+  }, [user, debouncedSearchQuery, selectedCategory, selectedSubject, selectedResourceType, pagination.limit, calculateLibraryStats]);
 
-  // Effect for initial load
   useEffect(() => {
     if (user?.id) {
       fetchUserFiles(1, true);
     }
   }, [user?.id]);
 
-  // Effect for filter changes (uses debounced search query)
   useEffect(() => {
     if (!isInitialLoad.current && user?.id) {
       fetchUserFiles(1, true);
     }
   }, [debouncedSearchQuery, selectedCategory, selectedSubject, selectedResourceType, user?.id]);
 
-  // Memoized handlers to prevent unnecessary re-renders
   const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);
   }, []);
@@ -165,14 +220,21 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({
 
   const handleRefresh = useCallback(() => {
     fetchUserFiles(pagination.page, false);
+    toast({
+      title: 'Refreshed',
+      description: 'Your library has been updated',
+    });
   }, [fetchUserFiles, pagination.page]);
 
   const handleUploadSuccess = useCallback(() => {
     setShowUploadModal(false);
     fetchUserFiles(1, true);
+    toast({
+      title: 'Success',
+      description: 'Resource uploaded successfully to your library',
+    });
   }, [fetchUserFiles]);
 
-  // Cleanup abort controller on unmount
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
@@ -183,30 +245,169 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="large" />
-        <p className="ml-4">Loading user information...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <LoadingSpinner size="large" />
+          <p className="ml-4 mt-4 text-gray-600">Loading user information...</p>
+        </div>
       </div>
     );
   }
 
   if (isPageLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="large" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <LoadingSpinner size="large" />
+          <p className="mt-4 text-gray-600">Loading your library...</p>
+        </div>
       </div>
     );
   }
 
-  // Empty state
+  // Enhanced empty state for user's own library
   if (!isPageLoading && files.length === 0 && !isLoading) {
+    const hasActiveFilters = searchQuery || selectedCategory !== 'all' || 
+                            selectedSubject !== 'all' || selectedResourceType !== 'all';
+    
     return (
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-16">
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <LibraryHeader 
+            user={user} 
+            onUploadClick={() => setShowUploadModal(true)}
+            owner={true}
+          />
+          
+          <SearchFilters
+            searchQuery={searchQuery}
+            onSearchChange={handleSearchChange}
+            selectedCategory={selectedCategory}
+            onCategoryChange={handleCategoryChange}
+            selectedSubject={selectedSubject}
+            onSubjectChange={handleSubjectChange}
+            selectedResourceType={selectedResourceType}
+            onResourceTypeChange={handleResourceTypeChange}
+          />
+
+          <div className="text-center py-16">
+            <div className="mx-auto h-32 w-32 text-gray-300 mb-6">
+              {hasActiveFilters ? (
+                <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} 
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              ) : (
+                <BookOpen className="w-full h-full" />
+              )}
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              {hasActiveFilters ? 'No matching resources found' : 'Your library is empty'}
+            </h3>
+            <p className="text-gray-500 mb-6 max-w-md mx-auto">
+              {hasActiveFilters 
+                ? 'Try adjusting your search or filter criteria to find what you\'re looking for.'
+                : 'Start building your personal resource collection by uploading your first file or link.'
+              }
+            </p>
+            {!hasActiveFilters && (
+              <div className="space-y-3">
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  className="inline-flex items-center gap-2 bg-[#f23b36] hover:bg-[#e12b26] text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                >
+                  <Upload size={20} />
+                  Upload Your First Resource
+                </button>
+                <p className="text-sm text-gray-400">
+                  Supported: PDF, DOCX, PPTX, XLSX, images, videos, YouTube links
+                </p>
+              </div>
+            )}
+          </div>
+
+          {showUploadModal && (
+            <UploadModal
+              user={user}
+              onClose={() => setShowUploadModal(false)}
+              onUploadSuccess={handleUploadSuccess}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const topSubject = Object.entries(libraryStats.subjectCount)
+    .sort(([,a], [,b]) => b - a)[0];
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <LibraryHeader 
           user={user} 
-          onUploadClick={() => setShowUploadModal(true)}
-          owner={true} 
+          onUploadClick={() => setShowUploadModal(true)} 
+          owner={true}
         />
+        
+        {/* Personal stats overview */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow-sm border p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <BookOpen size={20} className="text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Resources</p>
+                <p className="text-2xl font-bold text-gray-900">{libraryStats.totalFiles}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow-sm border p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <TrendingUp size={20} className="text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Storage Used</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatFileSize(libraryStats.totalSize)}
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow-sm border p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <Upload size={20} className="text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Recent Uploads</p>
+                <p className="text-2xl font-bold text-gray-900">{libraryStats.recentUploads}</p>
+                <p className="text-xs text-gray-500">Last 7 days</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow-sm border p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <BookOpen size={20} className="text-orange-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Top Subject</p>
+                <p className="text-lg font-bold text-gray-900 truncate">
+                  {topSubject ? topSubject[0] : 'None yet'}
+                </p>
+                {topSubject && (
+                  <p className="text-xs text-gray-500">{topSubject[1]} resources</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
         
         <SearchFilters
           searchQuery={searchQuery}
@@ -219,21 +420,25 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({
           onResourceTypeChange={handleResourceTypeChange}
         />
 
-        <div className="text-center py-12">
-          <div className="mx-auto h-24 w-24 text-gray-300 mb-4">
-            <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
+        <div className="mb-6 bg-white rounded-lg shadow-sm border p-4">
+          <div className="flex items-center justify-between text-sm text-gray-600">
+            <span>
+              Showing {files.length} of {pagination.total} your resources
+              {debouncedSearchQuery && ` matching "${debouncedSearchQuery}"`}
+            </span>
+            <span>Page {pagination.page} of {pagination.pages}</span>
           </div>
-          <h3 className="text-lg font-medium text-gray-900">No resources yet</h3>
-          <p className="text-gray-500 mt-2">Upload your first resource to get started.</p>
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium"
-          >
-            Upload Your First Resource
-          </button>
         </div>
+
+        <ResourcesGrid
+          files={files}
+          isLoading={isLoading}
+          user={user}
+          pagination={pagination}
+          onRefresh={handleRefresh}
+          onPageChange={handlePageChange}
+          showOwner={false} // Don't show owner in personal library (it's always you)
+        />
 
         {showUploadModal && (
           <UploadModal
@@ -243,45 +448,6 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({
           />
         )}
       </div>
-    );
-  }
-
-  return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-16">
-      <LibraryHeader 
-        user={user} 
-        onUploadClick={() => setShowUploadModal(true)} 
-        owner={true}
-      />
-      
-      <SearchFilters
-        searchQuery={searchQuery}
-        onSearchChange={handleSearchChange}
-        selectedCategory={selectedCategory}
-        onCategoryChange={handleCategoryChange}
-        selectedSubject={selectedSubject}
-        onSubjectChange={handleSubjectChange}
-        selectedResourceType={selectedResourceType}
-        onResourceTypeChange={handleResourceTypeChange}
-      />
-
-      <ResourcesGrid
-        files={files}
-        isLoading={isLoading}
-        user={user}
-        pagination={pagination}
-        onRefresh={handleRefresh}
-        onPageChange={handlePageChange}
-        showOwner={false}
-      />
-
-      {showUploadModal && (
-        <UploadModal
-          user={user}
-          onClose={() => setShowUploadModal(false)}
-          onUploadSuccess={handleUploadSuccess}
-        />
-      )}
     </div>
   );
-}
+};

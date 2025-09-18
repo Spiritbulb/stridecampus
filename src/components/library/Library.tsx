@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useApp } from '@/contexts/AppContext'; // Using AppContext for all auth state
+import { useApp } from '@/contexts/AppContext';
 import { toast } from '@/hooks/use-toast';
 import { getFiles } from '@/utils/r2';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
@@ -9,6 +9,7 @@ import { SearchFilters } from '@/components/library/SearchFilters';
 import { ResourcesGrid } from '@/components/library/ResourcesGrid';
 import { UploadModal } from '@/components/library/UploadModal';
 import { LibraryFile } from '@/components/library/types';
+
 
 // Custom hook for debounced value
 const useDebounce = (value: string, delay: number) => {
@@ -28,13 +29,10 @@ const useDebounce = (value: string, delay: number) => {
 };
 
 export default function Library() {
-  // Use AppContext for all auth state and navigation
   const { 
     isLoading: appIsLoading, 
-    currentScreen, 
     handleNavigateToAuth, 
     user,
-    isAuthenticated 
   } = useApp();
   
   const [files, setFiles] = useState<LibraryFile[]>([]);
@@ -43,7 +41,7 @@ export default function Library() {
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [selectedResourceType, setSelectedResourceType] = useState('all');
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [isFileLoading, setIsFileLoading] = useState(true); // Renamed for clarity
+  const [isFileLoading, setIsFileLoading] = useState(true);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -51,28 +49,19 @@ export default function Library() {
     pages: 1
   });
 
-  // Debounce search query by 500ms
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
-  
-  // Ref to track if this is the initial load
   const isInitialLoad = useRef(true);
-  
-  // Ref to prevent multiple simultaneous requests
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchFiles = useCallback(async (page = 1, resetPage = false) => {
     try {
-      // Cancel previous request if it's still ongoing
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
       
-      // Create new abort controller for this request
       abortControllerRef.current = new AbortController();
-      
       setIsFileLoading(true);
       
-      // Reset to page 1 if filters changed (not pagination)
       const targetPage = resetPage ? 1 : page;
       
       const result = await getFiles({
@@ -85,7 +74,26 @@ export default function Library() {
       });
       
       if (result && 'files' in result && 'pagination' in result) {
-        setFiles(result.files || []);
+        // Ensure each file has the proper structure with user information
+        const formattedFiles: LibraryFile[] = (result.files || []).map(file => ({
+          ...file,
+          // Ensure user information is properly structured
+          users: file.users || {
+            full_name: 'Unknown User',
+            school_name: '',
+            username: '',
+            checkmark: false
+          },
+          // Ensure tags is always an array
+          tags: Array.isArray(file.tags) ? file.tags : 
+          //@ts-ignore
+                typeof file.tags === 'string' ? file.tags.split(',').map(t => t.trim()) : 
+                ['educational'],
+          // Ensure metadata exists
+          metadata: file.metadata || {}
+        }));
+        
+        setFiles(formattedFiles);
         setPagination(prev => ({
           ...prev,
           page: targetPage,
@@ -98,7 +106,6 @@ export default function Library() {
       }
       
     } catch (error: any) {
-      // Don't show error if request was aborted
       if (error.name !== 'AbortError') {
         console.error('Error fetching files:', error);
         toast({
@@ -113,36 +120,30 @@ export default function Library() {
     }
   }, [debouncedSearchQuery, selectedCategory, selectedSubject, selectedResourceType, pagination.limit]);
 
-  // Effect for initial load
   useEffect(() => {
-    // Only fetch if app is not loading and we're on the correct screen
-    if (!appIsLoading && currentScreen === 'dashboard') {
+    if (!appIsLoading) {
       fetchFiles(1, true);
     }
-  }, [appIsLoading, currentScreen, fetchFiles]);
+  }, [appIsLoading, fetchFiles]);
 
-  // Effect for filter changes (uses debounced search query)
   useEffect(() => {
-    if (!isInitialLoad.current && !appIsLoading && currentScreen === 'dashboard') {
+    if (!isInitialLoad.current && !appIsLoading) {
       fetchFiles(1, true);
     }
-  }, [debouncedSearchQuery, selectedCategory, selectedSubject, selectedResourceType, fetchFiles, appIsLoading, currentScreen]);
+  }, [debouncedSearchQuery, selectedCategory, selectedSubject, selectedResourceType, fetchFiles, appIsLoading]);
 
-  // Update initial load ref when files are first loaded
   useEffect(() => {
     if (!isFileLoading && isInitialLoad.current) {
       isInitialLoad.current = false;
     }
   }, [isFileLoading]);
 
-  // Redirect to auth if not on dashboard screen
   useEffect(() => {
-    if (!appIsLoading && currentScreen === 'auth') {
+    if (!appIsLoading && !user) {
       handleNavigateToAuth();
     }
-  }, [appIsLoading, currentScreen, handleNavigateToAuth]);
+  }, [appIsLoading, user, handleNavigateToAuth]);
 
-  // Memoized handlers to prevent unnecessary re-renders
   const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);
   }, []);
@@ -170,9 +171,12 @@ export default function Library() {
   const handleUploadSuccess = useCallback(() => {
     setShowUploadModal(false);
     fetchFiles(1, true);
+    toast({
+      title: 'Success',
+      description: 'Resource uploaded successfully and added to the library',
+    });
   }, [fetchFiles]);
 
-  // Cleanup abort controller on unmount
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
@@ -181,56 +185,71 @@ export default function Library() {
     };
   }, []);
 
-  // Show global loading state if app is still loading
   if (appIsLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="large" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <LoadingSpinner size="large" />
+          <p className="mt-4 text-gray-600">Loading library...</p>
+        </div>
       </div>
     );
   }
 
-  // Don't render if not on dashboard screen
-  if (currentScreen !== 'dashboard') {
+  if (!user) {
+    handleNavigateToAuth();
     return null;
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-16">
-      <LibraryHeader 
-        user={user} 
-        onUploadClick={() => setShowUploadModal(true)} 
-        owner={false}
-      />
-      
-      <SearchFilters
-        searchQuery={searchQuery}
-        onSearchChange={handleSearchChange}
-        selectedCategory={selectedCategory}
-        onCategoryChange={handleCategoryChange}
-        selectedSubject={selectedSubject}
-        onSubjectChange={handleSubjectChange}
-        selectedResourceType={selectedResourceType}
-        onResourceTypeChange={handleResourceTypeChange}
-      />
-
-      <ResourcesGrid
-        files={files}
-        isLoading={isFileLoading} // Using renamed local loading state
-        user={user}
-        pagination={pagination}
-        onRefresh={handleRefresh}
-        onPageChange={handlePageChange}
-        showOwner={true}
-      />
-
-      {showUploadModal && (
-        <UploadModal
-          user={user}
-          onClose={() => setShowUploadModal(false)}
-          onUploadSuccess={handleUploadSuccess}
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <LibraryHeader 
+          user={user} 
+          onUploadClick={() => setShowUploadModal(true)} 
+          owner={false}
         />
-      )}
+        
+        <SearchFilters
+          searchQuery={searchQuery}
+          onSearchChange={handleSearchChange}
+          selectedCategory={selectedCategory}
+          onCategoryChange={handleCategoryChange}
+          selectedSubject={selectedSubject}
+          onSubjectChange={handleSubjectChange}
+          selectedResourceType={selectedResourceType}
+          onResourceTypeChange={handleResourceTypeChange}
+        />
+
+        {/* Stats bar */}
+        <div className="mb-6 bg-white rounded-lg shadow-sm border p-4">
+          <div className="flex items-center justify-between text-sm text-gray-600">
+            <span>
+              Showing {files.length} of {pagination.total} resources
+              {debouncedSearchQuery && ` for "${debouncedSearchQuery}"`}
+            </span>
+            <span>Page {pagination.page} of {pagination.pages}</span>
+          </div>
+        </div>
+
+        <ResourcesGrid
+          files={files}
+          isLoading={isFileLoading}
+          user={user}
+          pagination={pagination}
+          onRefresh={handleRefresh}
+          onPageChange={handlePageChange}
+          showOwner={true}
+        />
+
+        {showUploadModal && (
+          <UploadModal
+            user={user}
+            onClose={() => setShowUploadModal(false)}
+            onUploadSuccess={handleUploadSuccess}
+          />
+        )}
+      </div>
     </div>
   );
 }

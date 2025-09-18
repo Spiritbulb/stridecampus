@@ -188,7 +188,7 @@ function IndexContent() {
           />
         )}
         
-        {currentScreen === 'dashboard' || currentScreen === 'splash' && user && (
+        {currentScreen === 'dashboard' && user && (
           <Suspense fallback={
             <div className="flex justify-center items-center h-64">
               <LoadingSpinner size="large" />
