@@ -271,8 +271,8 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
                             selectedSubject !== 'all' || selectedResourceType !== 'all';
     
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="min-h-screen">
+        <div className="max-w-6xl sm:px-6 lg:px-8 py-8 content-max-width">
           <LibraryHeader 
             user={user} 
             onUploadClick={() => setShowUploadModal(true)}
@@ -290,7 +290,7 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
             onResourceTypeChange={handleResourceTypeChange}
           />
 
-          <div className="text-center py-16">
+          <div className="text-center py-16 card-responsive">
             <div className="mx-auto h-32 w-32 text-gray-300 mb-6">
               {hasActiveFilters ? (
                 <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -301,10 +301,10 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
                 <BookOpen className="w-full h-full" />
               )}
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            <h3 className="text-xl font-semibold text-gray-900 mb-2 text-responsive">
               {hasActiveFilters ? 'No matching resources found' : 'Your library is empty'}
             </h3>
-            <p className="text-gray-500 mb-6 max-w-md mx-auto">
+            <p className="text-gray-500 mb-6 max-w-md mx-auto text-responsive">
               {hasActiveFilters 
                 ? 'Try adjusting your search or filter criteria to find what you\'re looking for.'
                 : 'Start building your personal resource collection by uploading your first file or link.'
@@ -314,12 +314,12 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
               <div className="space-y-3">
                 <button
                   onClick={() => setShowUploadModal(true)}
-                  className="inline-flex items-center gap-2 bg-[#f23b36] hover:bg-[#e12b26] text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  className="inline-flex items-center gap-2 bg-[#f23b36] hover:bg-[#e12b26] text-white px-6 py-3 rounded-lg font-medium transition-colors btn-hover"
                 >
                   <Upload size={20} />
                   Upload Your First Resource
                 </button>
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-gray-400 text-responsive">
                   Supported: PDF, DOCX, PPTX, XLSX, images, videos, YouTube links
                 </p>
               </div>
@@ -342,8 +342,8 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
     .sort(([,a], [,b]) => b - a)[0];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen">
+      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8 content-max-width">
         <LibraryHeader 
           user={user} 
           onUploadClick={() => setShowUploadModal(true)} 
@@ -351,58 +351,58 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
         />
         
         {/* Personal stats overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-sm border p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow-sm border p-4 card-responsive">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-100 rounded-lg">
                 <BookOpen size={20} className="text-blue-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Resources</p>
-                <p className="text-2xl font-bold text-gray-900">{libraryStats.totalFiles}</p>
+              <div className="overflow-safe">
+                <p className="text-sm font-medium text-gray-600 text-responsive">Total Resources</p>
+                <p className="text-2xl font-bold text-gray-900 text-responsive">{libraryStats.totalFiles}</p>
               </div>
             </div>
           </div>
           
-          <div className="bg-white rounded-lg shadow-sm border p-4">
+          <div className="bg-white rounded-lg shadow-sm border p-4 card-responsive">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-green-100 rounded-lg">
                 <TrendingUp size={20} className="text-green-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Storage Used</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <div className="overflow-safe">
+                <p className="text-sm font-medium text-gray-600 text-responsive">Storage Used</p>
+                <p className="text-2xl font-bold text-gray-900 text-responsive">
                   {formatFileSize(libraryStats.totalSize)}
                 </p>
               </div>
             </div>
           </div>
           
-          <div className="bg-white rounded-lg shadow-sm border p-4">
+          <div className="bg-white rounded-lg shadow-sm border p-4 card-responsive">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-purple-100 rounded-lg">
                 <Upload size={20} className="text-purple-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Recent Uploads</p>
-                <p className="text-2xl font-bold text-gray-900">{libraryStats.recentUploads}</p>
-                <p className="text-xs text-gray-500">Last 7 days</p>
+              <div className="overflow-safe">
+                <p className="text-sm font-medium text-gray-600 text-responsive">Recent Uploads</p>
+                <p className="text-2xl font-bold text-gray-900 text-responsive">{libraryStats.recentUploads}</p>
+                <p className="text-xs text-gray-500 text-responsive">Last 7 days</p>
               </div>
             </div>
           </div>
           
-          <div className="bg-white rounded-lg shadow-sm border p-4">
+          <div className="bg-white rounded-lg shadow-sm border p-4 card-responsive">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-orange-100 rounded-lg">
                 <BookOpen size={20} className="text-orange-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Top Subject</p>
-                <p className="text-lg font-bold text-gray-900 truncate">
+              <div className="overflow-safe">
+                <p className="text-sm font-medium text-gray-600 text-responsive">Top Subject</p>
+                <p className="text-lg font-bold text-gray-900 truncate text-responsive">
                   {topSubject ? topSubject[0] : 'None yet'}
                 </p>
                 {topSubject && (
-                  <p className="text-xs text-gray-500">{topSubject[1]} resources</p>
+                  <p className="text-xs text-gray-500 text-responsive">{topSubject[1]} resources</p>
                 )}
               </div>
             </div>
@@ -420,13 +420,13 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
           onResourceTypeChange={handleResourceTypeChange}
         />
 
-        <div className="mb-6 bg-white rounded-lg shadow-sm border p-4">
-          <div className="flex items-center justify-between text-sm text-gray-600">
-            <span>
+        <div className="mb-6 bg-white rounded-lg shadow-sm border p-4 card-responsive">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-sm text-gray-600 gap-2 sm:gap-0">
+            <span className="text-responsive">
               Showing {files.length} of {pagination.total} your resources
               {debouncedSearchQuery && ` matching "${debouncedSearchQuery}"`}
             </span>
-            <span>Page {pagination.page} of {pagination.pages}</span>
+            <span className="text-responsive">Page {pagination.page} of {pagination.pages}</span>
           </div>
         </div>
 

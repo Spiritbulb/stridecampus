@@ -171,10 +171,15 @@ function IndexContent() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
           <LoadingSpinner size="large" />
-          <p className="text-muted-foreground">Loading application...</p>
+          <p className="text-muted-foreground">Setting things up...</p>
         </div>
       </div>
     );
+  }
+
+  if (!authLoading && !user) {
+    handleNavigateToAuth();
+    return null;
   }
 
   return (

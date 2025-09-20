@@ -461,7 +461,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                         }}
                       />
                     </div>
-                    {validation.email && (
+                    {validation.email && isSignUp && (
                       <p className={`text-sm ${
                         validation.email.valid ? 'text-green-600' : 'text-red-600'
                       }`}>

@@ -219,7 +219,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
               <label className="flex flex-col items-center justify-center w-full p-6 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-gray-400 transition-colors">
                 <Upload size={24} className="text-gray-400 mb-2" />
                 <span className="text-sm text-gray-500 text-center">
-                  {uploadForm.file ? uploadForm.file.name : 'Click to select file (PDF, DOCX, PPTX, XLSX, images, videos, audio, text)'}
+                  {uploadForm.file ? uploadForm.file.name : 'Click to select file (PDF, DOCX, PPTX, XLSX, text)'}
                 </span>
                 <input
                   type="file"

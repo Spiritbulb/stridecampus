@@ -45,7 +45,7 @@ export function isValidSchoolEmail(email: string): { isValid: boolean; message?:
     return { isValid: true };
   }
 
-  // If we're not sure, allow but warn (you can make this stricter)
+  // If we're not sure, allow but warn
   return { 
     isValid: true,
     message: 'You will need to verify this email address'

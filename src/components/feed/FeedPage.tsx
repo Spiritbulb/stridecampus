@@ -127,16 +127,6 @@ export default function FeedPage() {
             isLoading={feedLoading}
           />
         </div>
-
-        {/* Sidebar */}
-        <aside className="lg:w-80 flex-shrink-0"> {/* Constrain sidebar width */}
-          <FeedSidebar 
-            spaces={spaces}
-            onJoinSpace={joinSpace}
-            onCreateSpace={openCreateSpace}
-            user={user}
-          />
-        </aside>
       </div>
     </div>
   );

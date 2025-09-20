@@ -23,9 +23,6 @@ export const SUPPORTED_FILE_TYPES = {
   PPT: 'application/vnd.ms-powerpoint',
   XLSX: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   XLS: 'application/vnd.ms-excel',
-  IMAGE: 'image/*',
-  VIDEO: 'video/*',
-  AUDIO: 'audio/*',
   TEXT: 'text/plain'
 } as const;
 
@@ -270,7 +267,7 @@ export async function uploadFile(
 
     // Validate file type
     if (!isSupportedFileType(file.type)) {
-      throw new Error(`Unsupported file type: ${file.type}. Supported types: PDF, DOCX, PPTX, XLSX, images, videos, audio, and text files.`);
+      throw new Error(`Unsupported file type: ${file.type}. Supported types: PDF, DOCX, PPTX, XLSX, and text files.`);
     }
 
     // Generate unique filename
@@ -586,7 +583,6 @@ export async function deleteFile(fileId: string, userId: string) {
 }
 
 // Additional utility function to get file URL
-// In your r2.ts utility file
 export async function getFileUrl(filename: string): Promise<string> {
   // Check if the file exists first
   const exists = await checkFileExists(filename);

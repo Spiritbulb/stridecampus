@@ -51,7 +51,7 @@ export const Notifications: React.FC<NotificationsProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 mt-2 flex justify-end pt-16">
+    <div className="fixed inset-0 z-50 ml-20 flex justify-start">
       <div 
         ref={modalRef}
         className="bg-white w-full max-w-md h-full shadow-xl animate-in slide-in-from-right duration-300"

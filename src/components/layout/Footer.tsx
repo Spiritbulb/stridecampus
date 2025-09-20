@@ -18,7 +18,7 @@ import {
   CogIcon as CogIconSolid,
   ChatBubbleBottomCenterIcon
 } from '@heroicons/react/24/solid';
-import { MessageCirclePlus } from 'lucide-react';
+import { MessageCirclePlus, BotMessageSquareIcon, BotIcon, PlusSquare, PlusCircle } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   const { user } = useAuth();
@@ -34,13 +34,6 @@ export const Footer: React.FC = () => {
       isActive: pathname === '/arena'
     },
     {
-      name: 'Library',
-      href: '/library',
-      icon: BookOpenIcon,
-      activeIcon: BookOpenIconSolid,
-      isActive: pathname === '/library' || pathname.startsWith('/library/')
-    },
-    {
       name: 'Spaces',
       href: '/spaces',
       icon: UsersIcon,
@@ -48,20 +41,35 @@ export const Footer: React.FC = () => {
       isActive: pathname === '/spaces' || pathname.startsWith('/spaces/')
     },
     {
-      name: 'Profile',
-      href: `/u/${user?.username || 'profile'}`,
-      icon: UserIcon,
-      activeIcon: UserIconSolid,
-      isActive: pathname === `/u/${user?.username}` || pathname.startsWith('/u/')
+      name: 'Create',
+      href: '/create?type=post',
+      icon: PlusSquare,
+      activeIcon: PlusSquare,
+      isActive: pathname === '/create' || pathname.startsWith('/create/')
+    },
+    {
+      name: 'Nia',
+      href: '/nia',
+      icon: BotMessageSquareIcon,
+      activeIcon: BotIcon,
+      isActive: pathname === '/nia' || pathname.startsWith('/u/')
+    },
+    {
+      name: 'Library',
+      href: '/library',
+      icon: BookOpenIcon,
+      activeIcon: BookOpenIconSolid,
+      isActive: pathname === '/library' || pathname.startsWith('/library/')
     }
   ];
 
   return (
     <>
       {/* Mobile Footer Navigation */}
-      <div className="block md:hidden fixed bottom-0 left-0 right-0 z-50">
+      {user && (
+        <div className="block md:hidden fixed bottom-0 left-0 right-0 z-50 pt-20">
         <div className="bg-white">
-          <div className="grid grid-cols-4 py-2">
+          <div className="grid grid-cols-5 py-4">
             {navItems.map((item) => {
               const IconComponent = item.isActive ? item.activeIcon : item.icon;
               return (
@@ -75,70 +83,16 @@ export const Footer: React.FC = () => {
                   }`}
                 >
                   <IconComponent className="h-6 w-6" />
-                  <span className="mt-1">{item.name}</span>
                 </a>
               );
             })}
           </div>
         </div>
       </div>
+      )}
+      
 
-      {/* Desktop Footer (unchanged) */}
-      <footer className="hidden md:block bg-card/30 backdrop-blur-sm mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <img 
-                src="/logo-rectangle.png" 
-                alt="Stride Campus" 
-                className="h-6 w-auto" 
-                loading="lazy" 
-                decoding="async" 
-              />
-              <span>© {new Date().getFullYear()} Stride Campus</span>
-            </div>
-            
-            <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6 text-sm">
-              <a 
-                href="/library" 
-                className="text-black/70 hover:text-black-800 dark:text-black-800 dark:hover:text-black-200 transition-colors duration-300 relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-px after:bg-current after:transition-all after:duration-300 hover:after:w-full"
-              >
-                Library
-              </a>
-              <a 
-                href={`/u/${user?.username}`} 
-                className="text-black/70 hover:text-black-800 dark:text-black-800 dark:hover:text-black-200 transition-colors duration-300 relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-px after:bg-current after:transition-all after:duration-300 hover:after:w-full"
-              >
-                Profile
-              </a>
-              <a 
-                href="/referrals" 
-                className="text-black/70 hover:text-black-800 dark:text-black-800 dark:hover:text-black-200 transition-colors duration-300 relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-px after:bg-current after:transition-all after:duration-300 hover:after:w-full"
-              >
-                Tell a friend
-              </a>
-              <a 
-                href="/about" 
-                className="text-black/70 hover:text-black-800 dark:text-black-800 dark:hover:text-black-200 transition-colors duration-300 relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-px after:bg-current after:transition-all after:duration-300 hover:after:w-full"
-              >
-                About
-              </a>
-              <a 
-                href="/privacy" 
-                className="text-black/80 hover:text-black-800 dark:text-black-800 dark:hover:text-black-200 transition-colors duration-300 relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-px after:bg-current after:transition-all after:duration-300 hover:after:w-full"
-              >
-                Privacy
-              </a>
-              <a 
-                href="/support" 
-                className="text-black/80 hover:text-black-800 dark:text-black-800 dark:hover:text-black-200 transition-colors duration-300 relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-px after:bg-current after:transition-all after:duration-300 hover:after:w-full"
-              >
-                Support
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      
     </>
   );
 };

@@ -199,7 +199,7 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ file, user, onDelete
   const getActionButtonText = () => {
     switch (file.resource_type) {
       case 'youtube':
-        return { icon: Play, text: 'Watch on YouTube' };
+        return { icon: Play, text: 'YouTube' };
       case 'website':
         return { icon: ExternalLink, text: 'Visit Website' };
       case 'article':
@@ -233,19 +233,18 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ file, user, onDelete
   };
 
   return (
-    <div className={`bg-white border-2 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 ${
+    <div className={`bg-white border-2 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 card-responsive ${
       isRecent() ? 'border-blue-200 bg-gradient-to-br from-blue-50/50 to-white' : 'border-gray-100'
     }`}>
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          {getResourceTypeIcon()}
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full text-responsive">
               {file.subject}
             </span>
             {isRecent() && (
-              <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+              <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full text-responsive">
                 New
               </span>
             )}
@@ -257,7 +256,7 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ file, user, onDelete
           <div className="relative" ref={shareMenuRef}>
             <button
               onClick={() => setShowShareMenu(!showShareMenu)}
-              className="p-2 text-gray-500 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+              className="p-2 text-gray-500 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors btn-hover"
               aria-label="Share resource"
               title="Share resource"
             >
@@ -266,10 +265,10 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ file, user, onDelete
             
             {/* Share Menu */}
             {showShareMenu && (
-              <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg py-2 min-w-[160px] z-10">
+              <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg py-2 min-w-[160px] z-10 modal-responsive">
                 <button
                   onClick={handleShare}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-responsive"
                 >
                   <Share2 size={14} />
                   {typeof navigator.share !== 'undefined' ? 'Share' : 'Copy Link'}
@@ -278,7 +277,7 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ file, user, onDelete
                 {typeof navigator.share !== 'undefined' && (
                   <button
                     onClick={copyLink}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-responsive"
                   >
                     {copied ? (
                       <>
@@ -302,7 +301,7 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ file, user, onDelete
             <button
               onClick={() => handleDelete(file.id)}
               disabled={isDeleting}
-              className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed btn-hover"
               aria-label="Delete resource"
               title="Delete resource"
             >
@@ -313,7 +312,7 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ file, user, onDelete
       </div>
       
       {/* Title */}
-      <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem]">
+      <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem] text-responsive">
         {file.resource_type === 'youtube' ? (
           file.description || 'YouTube Video'
         ) : file.resource_type === 'file' ? (
@@ -325,18 +324,18 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ file, user, onDelete
       
       {/* Description (only show if different from title) */}
       {file.description && file.resource_type !== 'youtube' && (
-        <p className="text-gray-600 text-sm mb-4 line-clamp-3">{file.description}</p>
+        <p className="text-gray-600 text-sm mb-4 line-clamp-3 text-responsive">{file.description}</p>
       )}
       
       {/* Tags */}
       <div className="flex flex-wrap gap-2 mb-4">
         {file.tags.slice(0, 4).map((tag, index) => (
-          <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+          <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full text-responsive">
             {tag}
           </span>
         ))}
         {file.tags.length > 4 && (
-          <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+          <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full text-responsive">
             +{file.tags.length - 4} more
           </span>
         )}
@@ -353,7 +352,7 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ file, user, onDelete
               />
               <button
                 onClick={() => setShowYouTubeEmbed(false)}
-                className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                className="text-xs text-gray-500 hover:text-gray-700 transition-colors text-responsive"
               >
                 Hide preview
               </button>
@@ -361,7 +360,7 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ file, user, onDelete
           ) : (
             <button
               onClick={() => setShowYouTubeEmbed(true)}
-              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"
+              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 transition-colors text-responsive"
             >
               <Eye size={14} />
               Show preview
@@ -372,23 +371,23 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ file, user, onDelete
       
       {/* Metadata */}
       <div className="text-xs text-gray-500 mb-3 space-y-1">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2 xs:gap-0">
           <div className="flex items-center gap-2">
             <Calendar size={12} />
-            <span>{getRelativeTime(file.created_at)}</span>
+            <span className="text-responsive">{getRelativeTime(file.created_at)}</span>
           </div>
           {file.resource_type === 'file' && (
-            <span className="font-medium">{formatFileSize(file.file_size)}</span>
+            <span className="font-medium text-responsive">{formatFileSize(file.file_size)}</span>
           )}
         </div>
         
         {/* Owner Info */}
         {showOwner && file.users && (
-          <div className="text-gray-600 pt-1 border-t border-gray-100">
+          <div className="text-gray-600 pt-1 border-t border-gray-100 text-responsive">
             Uploaded by{' '}
             <a 
               href={`/u/${file.users.username || 'unknown'}`} 
-              className="hover:underline font-medium text-blue-600 hover:text-blue-700 transition-colors"
+              className="hover:underline font-medium text-blue-600 hover:text-blue-700 transition-colors text-responsive"
               onClick={(e) => e.stopPropagation()}
             >
               {file.users.username || 'Unknown User'}
@@ -404,10 +403,10 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ file, user, onDelete
       {/* Action Button */}
       <button
         onClick={() => handleDownload(file)}
-        className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-gray-100 to-gray-50 text-gray-700 rounded-xl hover:from-blue-50 hover:to-blue-100 hover:text-blue-700 transition-all duration-200 font-medium"
+        className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-gray-100 to-gray-50 text-gray-700 rounded-xl hover:from-blue-50 hover:to-blue-100 hover:text-blue-700 transition-all duration-200 font-medium btn-hover text-responsive"
       >
         <actionButton.icon size={16} />
-        {actionButton.text}
+        <span className="text-responsive">{actionButton.text}</span>
       </button>
     </div>
   );
