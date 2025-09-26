@@ -1,10 +1,15 @@
 import React from 'react';
-import { SafeAreaView, StyleSheet } from 'react-native';
+import { View, StyleSheet, StatusBar, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 export default function App() {
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar 
+        barStyle="dark-content"
+        backgroundColor="#ffffff"
+        translucent={Platform.OS === 'android'}
+      />
       <WebView 
         source={{ uri: 'https://stridecampus.com' }}
         style={styles.webview}
@@ -15,16 +20,17 @@ export default function App() {
         scalesPageToFit
         sharedCookiesEnabled
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 24
+    backgroundColor: '#ffffff',
   },
   webview: {
     flex: 1,
+    marginTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
 });

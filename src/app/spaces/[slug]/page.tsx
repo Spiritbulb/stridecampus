@@ -4,7 +4,6 @@ import { useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { User, Space, Post } from '@/utils/supabaseClient';
 import { useFeedData } from '@/hooks/useFeedData';
-import FeedSidebar from '@/components/feed/main/FeedSidebar';
 import PostCard from '@/components/feed/main/PostCard'; // Assuming you have a PostCard component
 import { usePostActions } from '@/hooks/usePostActions';
 import { useMemberCounts } from '@/components/feed/main/deps/sidebar';
@@ -157,16 +156,6 @@ export default function SpacePage() {
               </div>
             )}
           </div>
-        </div>
-        
-        {/* Sidebar */}
-        <div className="lg:w-80">
-          <FeedSidebar 
-            spaces={spaces} 
-            onJoinSpace={joinSpace}
-            user={user}
-            onCreateSpace={handleCreateSpace}
-          />
         </div>
       </div>
     </div>
