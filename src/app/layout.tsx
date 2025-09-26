@@ -2,10 +2,7 @@
 import { Inter, Poppins } from 'next/font/google'
 import './globals.css'
 import 'katex/dist/katex.min.css';
-import { Navbar } from '@/components/layout/Navbar';
-import { Footer } from '@/components/layout/Footer';
 import { AppProvider } from '@/contexts/AppContext'
-import AppSidebar from '@/components/sidebar/AppSidebar';
 import { AuthAwareLayout } from './AuthAwareLayout';
 import type { Metadata } from 'next'
 import { PWAProvider } from '@/contexts/PWAProvider'
@@ -117,13 +114,7 @@ export default function RootLayout({
         <PWAProvider />
         <AppProvider>
           <AuthAwareLayout>
-          {/* Main Content Area */}
-          <div 
-            id="root" 
-            className="transition-all duration-300"
-          >
             {children}
-          </div>
           </AuthAwareLayout>
         </AppProvider>
       </body>
