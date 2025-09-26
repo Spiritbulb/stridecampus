@@ -66,26 +66,31 @@ export const fetchPosts = async (
       .from('posts')
       .select(`
         *,
-        author:users(full_name, avatar_url, checkmark, username),
-        space:spaces(name, display_name),
+        author:users!posts_author_id_fkey(full_name, avatar_url, checkmark, username),
+        space:spaces(name, display_name, is_public),
         vote_count:post_votes(count),
         comment_count:comments(count),
         share_count:post_shares(count),
-        user_vote:post_votes(vote_type)
-      `)
-      .order('created_at', { ascending: false });
+        user_vote:post_votes(vote_type),
+        hashtags:post_hashtags(hashtag:hashtags(id, name)),
+        mentions:post_mentions(mentioned_user:users!post_mentions_mentioned_user_id_fkey(id, username, full_name)),
+        resource_tags:resource_tags(library:library(id, original_name, file_type, file_size))
+      `);
 
     // Filter by space if selected
     if (selectedSpace !== 'all') {
       query = query.eq('space_id', selectedSpace);
     }
 
-    // Apply sorting
+    // Apply proper sorting
     if (sortBy === 'hot') {
-      // Hot sorting logic (combination of votes and recent activity)
+      // Hot posts: combination of votes and recent activity
       query = query.order('created_at', { ascending: false });
     } else if (sortBy === 'top') {
-      // This would need a more complex query for top posts of all time
+      // Top posts: highest vote count
+      query = query.order('vote_count', { ascending: false, referencedTable: 'post_votes' });
+    } else {
+      // Default: newest first
       query = query.order('created_at', { ascending: false });
     }
 
@@ -103,7 +108,10 @@ export const fetchPosts = async (
       vote_count: post.vote_count?.[0]?.count || 0,
       comment_count: post.comment_count?.[0]?.count || 0,
       share_count: post.share_count?.[0]?.count || 0,
-      user_vote: post.user_vote?.[0]?.vote_type || 0
+      user_vote: post.user_vote?.[0]?.vote_type || 0,
+      hashtags: post.hashtags?.map((ht: any) => ht.hashtag) || [],
+      mentions: post.mentions?.map((m: any) => m.mentioned_user) || [],
+      resource_tags: post.resource_tags?.map((rt: any) => rt.library_file) || []
     }));
   } catch (error) {
     console.error('Error fetching posts:', error);

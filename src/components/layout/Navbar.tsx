@@ -8,13 +8,17 @@ import Notifications from './Notifications';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { EnvelopeIcon } from '@heroicons/react/24/outline';
+import { useCreateModal } from '@/hooks/useCreateModal';
+import CreateModal from '@/components/create/CreateModal';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Home01Icon, Book01Icon, PeerToPeer01FreeIcons, PlusSignIcon, RankingIcon, Message01Icon, Setting06FreeIcons, Settings01FreeIcons } from '@hugeicons/core-free-icons';
 
 // Constants
 const NOTIFICATIONS_STORAGE_KEY = 'notificationsOpen';
-const UNREAD_BATCH_SIZE = 50; // Process notifications in batches
-const MARK_READ_DEBOUNCE = 300; // Debounce mark as read operations
+const UNREAD_BATCH_SIZE = 50;
+const MARK_READ_DEBOUNCE = 300;
 
-// Optimized storage manager
+// Storage Manager
 class NavbarStorageManager {
   private static cache = new Map<string, any>();
   
@@ -52,7 +56,7 @@ class NavbarStorageManager {
   }
 }
 
-// Custom hook for pathname to prevent unnecessary renders
+// Custom hook for pathname
 function usePathname() {
   const [pathname, setPathname] = useState(() => 
     typeof window !== 'undefined' ? window.location.pathname : '/'
@@ -66,7 +70,6 @@ function usePathname() {
       setPathname(current => current !== newPathname ? newPathname : current);
     };
     
-    // Listen for navigation changes
     window.addEventListener('popstate', handleLocationChange);
     
     return () => {
@@ -77,41 +80,94 @@ function usePathname() {
   return pathname;
 }
 
-// Optimized notification button component
+// Notification Button Component
 const NotificationButton = React.memo(({ 
   isOpen, 
   unreadCount, 
-  onToggle 
+  onToggle,
+  notificationPermission,
+  onRequestPermission
 }: {
   isOpen: boolean;
   unreadCount: number;
   onToggle: () => void;
-}) => (
-  <div className="relative group">
-    <button 
-      className="relative p-3 rounded-full hover:bg-gray-100 transition-colors duration-200 flex items-center justify-center" 
-      onClick={onToggle} 
-      title="Notifications"
-      aria-label={isOpen ? "Close notifications" : "Open notifications"}
-    >
-      {isOpen ? <X size={24}/> : <Bell size={24}/>}
-      {unreadCount > 0 && (
-        <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
-          {unreadCount > 99 ? '99+' : unreadCount}
-        </span>
+  notificationPermission: NotificationPermission;
+  onRequestPermission: () => void;
+}) => {
+  const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
+
+  const handleClick = () => {
+    if (notificationPermission === 'default') {
+      setShowPermissionPrompt(true);
+    } else {
+      onToggle();
+    }
+  };
+
+  const handleEnableNotifications = async () => {
+    await onRequestPermission();
+    setShowPermissionPrompt(false);
+    if (notificationPermission === 'granted') {
+      onToggle();
+    }
+  };
+
+  return (
+    <div className="relative group">
+      <button 
+        className="relative p-3 rounded-full hover:bg-gray-100 transition-colors duration-200 flex items-center justify-center" 
+        onClick={handleClick} 
+        title="Notifications"
+        aria-label={isOpen ? "Close notifications" : "Open notifications"}
+      >
+        {isOpen ? <X size={24}/> : <Bell size={24}/>}
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+        {notificationPermission === 'default' && (
+          <span className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full border-2 border-white"></span>
+        )}
+      </button>
+      
+      {showPermissionPrompt && (
+        <div className="absolute left-full ml-4 w-64 p-4 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+          <div className="text-sm font-medium text-gray-900 mb-2">
+            Enable Notifications?
+          </div>
+          <div className="text-xs text-gray-600 mb-3">
+            Get notified about new messages, updates, and activities.
+          </div>
+          <div className="flex gap-2">
+            <button 
+              onClick={handleEnableNotifications}
+              className="flex-1 px-3 py-1.5 bg-[#f23b36] text-white text-xs rounded-md hover:bg-[#e03530]"
+            >
+              Enable
+            </button>
+            <button 
+              onClick={() => setShowPermissionPrompt(false)}
+              className="flex-1 px-3 py-1.5 bg-gray-200 text-gray-700 text-xs rounded-md hover:bg-gray-300"
+            >
+              Later
+            </button>
+          </div>
+        </div>
       )}
-    </button>
-    {/* Tooltip */}
-    <div className="absolute left-full ml-4 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 top-1/2 transform -translate-y-1/2">
-      Notifications
-      <div className="absolute right-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-r-4 border-transparent border-r-gray-900"></div>
+
+      <div className="absolute left-full ml-4 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-40 top-1/2 transform -translate-y-1/2">
+        Notifications
+        {notificationPermission === 'default' && ' (Click to enable)'}
+        <div className="absolute right-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-r-4 border-transparent border-r-gray-900"></div>
+      </div>
     </div>
-  </div>
-));
+  );
+});
 
 NotificationButton.displayName = 'NotificationButton';
 
-// Optimized user profile section
+// User Profile Component
 const UserProfile = React.memo(({
   user, 
   username, 
@@ -122,24 +178,21 @@ const UserProfile = React.memo(({
   onSignOut: () => void;
 }) => (
   <div className="flex flex-col gap-2">
-    {/* Profile Link */}
     <div className="relative group">
       <Link 
         href={`/u/${username}`} 
         className="flex items-center justify-center p-3 rounded-full hover:bg-gray-100 transition-colors duration-200"
       >
-        <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
-          <User size={20} className="text-accent-foreground" />
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#f23b36] to-[#e03530] flex items-center justify-center">
+          <User size={20} className="text-white" />
         </div>
       </Link>
-      {/* Tooltip */}
       <div className="absolute left-full ml-4 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 top-1/2 transform -translate-y-1/2">
         {user?.full_name || 'Profile'}
         <div className="absolute right-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-r-4 border-transparent border-r-gray-900"></div>
       </div>
     </div>
 
-    {/* Sign Out Button */}
     <div className="relative group">
       <button 
         onClick={onSignOut}
@@ -149,7 +202,6 @@ const UserProfile = React.memo(({
       >
         <LogOut size={20} />
       </button>
-      {/* Tooltip */}
       <div className="absolute left-full ml-4 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 top-1/2 transform -translate-y-1/2">
         Sign out
         <div className="absolute right-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-r-4 border-transparent border-r-gray-900"></div>
@@ -160,14 +212,221 @@ const UserProfile = React.memo(({
 
 UserProfile.displayName = 'UserProfile';
 
-// Loading skeleton component
+// Loading Skeleton
 const LoadingSkeleton = React.memo(() => (
   <div className="h-8 w-32 bg-gray-200 rounded-lg animate-pulse" />
 ));
 
 LoadingSkeleton.displayName = 'LoadingSkeleton';
 
-// Desktop Sidebar component - Twitter style
+// Enhanced Mobile Navigation Component
+const MobileNavigation = React.memo(({ 
+  pathname,
+  user,
+  username,
+  onSignOut,
+  isNotificationsOpen,
+  onNotificationsToggle,
+  notificationPermission,
+  onRequestPermission,
+  onCreateClick
+}: {
+  pathname: string;
+  user: any;
+  username: any;
+  onSignOut: () => void;
+  isNotificationsOpen: boolean;
+  onNotificationsToggle: () => void;
+  notificationPermission: NotificationPermission;
+  onRequestPermission: () => void;
+  onCreateClick: () => void;
+}) => {
+  const [isMenuOpen, setMenuOpen] = useState(false);
+  
+  const navItems = [
+    { name: 'Spaces', href: '/spaces', icon: Home01Icon },
+    { name: 'Arena', href: '/arena', icon: RankingIcon },
+    { name: 'Create', icon: PlusSignIcon, isAction: true },
+    { name: 'Library', href: '/library', icon: Book01Icon },
+    { name: 'Chats', href: '/chats', icon: Message01Icon },
+    { name: 'Settings', href: '/settings', icon: Setting06FreeIcons },
+  ];
+
+  const toggleMenu = () => {
+    setMenuOpen(!isMenuOpen);
+  };
+
+  const handleNavClick = () => {
+    setMenuOpen(false);
+  };
+
+  const handleItemClick = (item: any) => {
+    if (item.isAction && item.name === 'Create') {
+      onCreateClick();
+    }
+    setMenuOpen(false);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (isMenuOpen && !target.closest('.mobile-menu-container')) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [isMenuOpen]);
+
+  const router = useRouter();
+
+  return (
+    <div className="mobile-menu-container">
+      <button
+        onClick={toggleMenu}
+        className="p-2 hover:text-[#f23b36] transition-colors duration-200"
+        aria-label="Open menu"
+        aria-expanded={isMenuOpen}
+      >
+        <Menu size={24} className="text-gray-700" />
+      </button>
+
+      {isMenuOpen && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black/20 z-40 md:hidden"
+            onClick={() => setMenuOpen(false)}
+          />
+          
+          <div className="fixed top-0 left-0 h-full w-80 max-w-full bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out md:hidden">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <a href={`/u/${user?.username}`}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#f23b36] to-[#e03530] flex items-center justify-center">
+                  <img src={user?.avatar_url || '/default-avatar.png'} className='w-9 h-auto object-contain rounded-full'/>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900 text-sm">
+                    {user?.full_name || 'User'}
+                  </p>
+                  <p className="text-gray-500 text-xs">@{username}</p>
+                </div>
+              </div>
+              </a>
+              <button
+                onClick={() => setMenuOpen(false)}
+                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                aria-label="Close menu"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <nav className="flex-1 py-4">
+              <div className="space-y-1 px-2">
+                {navItems.map((item) => {
+                  const isActive = !item.isAction && (
+                    pathname === item.href || 
+                    pathname.startsWith(item.href?.split('?')[0] || '')
+                  );
+                  
+                  return (
+                    <button
+                      key={item.name}
+                      onClick={() => item.isAction ? handleItemClick(item) : router.push(`${item.href}`) }
+                      
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 w-full text-left ${
+                        isActive
+                          ? 'bg-[#f23b36] text-white shadow-sm'
+                          : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                      }`}
+                    >
+                      <HugeiconsIcon 
+                        icon={item.icon} 
+                        size={20} 
+                        color="currentColor" 
+                        strokeWidth={1.5}
+                        className={isActive ? 'text-white' : 'text-current'}
+                      />
+                      <span className="font-medium">{item.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </nav>
+
+            <div className="p-4 border-t border-gray-200 space-y-3">
+              <button
+                onClick={() => {
+                  onSignOut();
+                  setMenuOpen(false);
+                }}
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-all duration-200"
+              >
+                <LogOut size={20} />
+                <span className="font-medium">Sign Out</span>
+              </button>
+            </div>
+
+            <div className="p-4 border-t border-gray-200">
+              <p className="text-xs text-gray-500 text-center">
+                Stride Campus • Beta
+              </p>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+});
+
+MobileNavigation.displayName = 'MobileNavigation';
+
+// Mobile Nav Component
+const MobileNav = React.memo(({ 
+  user, 
+  username, 
+  onSignOut, 
+  isNotificationsOpen, 
+  onNotificationsToggle,
+  notificationPermission,
+  onRequestPermission,
+  pathname,
+  onCreateClick
+}: { 
+  user: any; 
+  username: any; 
+  onSignOut: () => void; 
+  isNotificationsOpen: boolean; 
+  onNotificationsToggle: () => void;
+  notificationPermission: NotificationPermission;
+  onRequestPermission: () => void;
+  pathname: string;
+  onCreateClick: () => void;
+}) => {
+  return (
+    <div className="flex md:hidden items-center gap-3">
+      {user && (
+        <MobileNavigation
+          pathname={pathname}
+          user={user}
+          username={username}
+          onSignOut={onSignOut}
+          isNotificationsOpen={isNotificationsOpen}
+          onNotificationsToggle={onNotificationsToggle}
+          notificationPermission={notificationPermission}
+          onRequestPermission={onRequestPermission}
+          onCreateClick={onCreateClick}
+        />
+      )}
+    </div>
+  );
+});
+
+MobileNav.displayName = 'MobileNav';
+
+// Desktop Sidebar Component
 const DesktopSidebar = React.memo(({ 
   pathname,
   user,
@@ -175,7 +434,10 @@ const DesktopSidebar = React.memo(({
   onSignOut,
   isNotificationsOpen,
   unreadCount,
-  onNotificationsToggle
+  onNotificationsToggle,
+  notificationPermission,
+  onRequestPermission,
+  onCreateClick
 }: { 
   pathname: string;
   user: any;
@@ -184,53 +446,69 @@ const DesktopSidebar = React.memo(({
   isNotificationsOpen: boolean;
   unreadCount: number;
   onNotificationsToggle: () => void;
+  notificationPermission: NotificationPermission;
+  onRequestPermission: () => void;
+  onCreateClick: () => void;
 }) => {
   const navItems = [
-    { name: 'Arena', href: '/arena', icon: Home },
-    { name: 'Library', href: '/library', icon: BookOpen },
-    { name: 'Spaces', href: '/spaces', icon: Users },
-    { name: 'Create', href: '/create?type=post', icon: PlusSquare},
-    { name: 'Chats', href: '/chats', icon: MessageSquare },
+    { name: 'Spaces', href: '/spaces', icon: Home01Icon },
+    { name: 'Arena', href: '/arena', icon: RankingIcon },
+    { name: 'Create', icon: PlusSignIcon, isAction: true },
+    { name: 'Library', href: '/library', icon: Book01Icon },
+    { name: 'Chats', href: '/chats', icon: Message01Icon },
+    { name: 'Settings', href: '/settings', icon: Settings01FreeIcons },
   ];
 
   return (
     <div className="hidden md:flex fixed top-0 left-0 h-full w-20 bg-white border-r border-gray-200 flex-col items-center py-6 z-40">
-      {/* Logo */}
       <div className="mb-6">
         <Link href="/arena" className="block p-3 transition-colors duration-200">
           <div className='items-center'>
             <img 
-    src="/logo.png" 
-    alt="Stride Campus" 
-    className="h-10 w-auto"
-    loading="lazy"
-      decoding="async" 
-  />
-  <span className="ml-1 text-xs font-medium bg-yellow-500 text-white px-1.5 py-0.5 rounded-full">Beta</span>
-  </div>
+              src="/logo.png" 
+              alt="Stride Campus" 
+              className="h-10 w-auto"
+              loading="lazy"
+              decoding="async" 
+            />
+            <span className="ml-1 text-xs font-medium bg-yellow-500 text-white px-1.5 py-0.5 rounded-full">Beta</span>
+          </div>
         </Link>
       </div>
 
-      {/* Navigation Items */}
       <nav className="flex-1 flex flex-col items-center gap-2">
         {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href || 
-                          pathname.startsWith(item.href)
+          const isActive = !item.isAction && (
+            pathname === item.href || 
+            pathname.startsWith(item.href?.split('?')[0] || '')
+          );
           
           return (
             <div key={item.name} className="relative group">
-              <Link
-                href={item.href}
-                className={`flex items-center justify-center w-12 h-12 rounded-lg transition-all duration-200 ${
-                  isActive
-                    ? 'text-[#f23b36]'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-              >
-                <Icon size={20} />
-              </Link>
-              {/* Tooltip */}
+              {item.isAction ? (
+                <button
+                  onClick={onCreateClick}
+                  className={`flex items-center justify-center w-12 h-12 rounded-lg transition-all duration-200 ${
+                    isActive
+                      ? 'text-[#f23b36]'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  <HugeiconsIcon icon={item.icon} size={20} color="currentColor" strokeWidth={1.5} />
+                </button>
+              ) : (
+                <Link
+                //@ts-ignore
+                  href={item.href}
+                  className={`flex items-center justify-center w-12 h-12 rounded-lg transition-all duration-200 ${
+                    isActive
+                      ? 'text-[#f23b36]'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  <HugeiconsIcon icon={item.icon} size={20} color="currentColor" strokeWidth={1.5} />
+                </Link>
+              )}
               <div className="absolute left-full ml-4 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 top-1/2 transform -translate-y-1/2">
                 {item.name}
                 <div className="absolute right-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-r-4 border-transparent border-r-gray-900"></div>
@@ -240,17 +518,9 @@ const DesktopSidebar = React.memo(({
         })}
       </nav>
 
-      {/* User Section */}
       {user && (
         <div className="flex flex-col items-center gap-4 mt-auto">
-          {/* Notifications */}
-          <NotificationButton
-            isOpen={isNotificationsOpen}
-            unreadCount={unreadCount}
-            onToggle={onNotificationsToggle}
-          />
           
-          {/* Profile and Sign Out */}
           <UserProfile user={user} onSignOut={onSignOut} username={username}/>
         </div>
       )}
@@ -260,42 +530,31 @@ const DesktopSidebar = React.memo(({
 
 DesktopSidebar.displayName = 'DesktopSidebar';
 
-// Mobile navigation component
-const MobileNav = React.memo(() => {
-  return (
-    <div className="flex md:hidden items-center gap-4">
-      <a
-        href="/chats"
-        className="p-2 text-muted-foreground hover:text-[#f23b36] transition-colors"
-        title="Messages"
-        aria-label="Messages"
-      >
-        <EnvelopeIcon className='w-5' />
-      </a>
-    </div>
-  );
-});
-
-MobileNav.displayName = 'MobileNav';
-
+// Main Navbar Component
 export const Navbar: React.FC = React.memo(() => {
   const router = useRouter();
   const { user, loading: authLoading, signOut } = useAuth();
   const { handleNavigateToAuth } = useApp();
   const pathname = usePathname();
-  const { notifications, unreadCount, markAsRead } = useNotifications(user?.id);
+  const { 
+    notifications, 
+    unreadCount, 
+    markAsRead,
+    notificationPermission,
+    requestNotificationPermission,
+    triggerTestNotification 
+  } = useNotifications(user?.id);
   const username = user?.username;
   
-  // State with lazy initialization
+  const createModal = useCreateModal();
+  
   const [isNotificationsOpen, setNotificationsOpen] = useState(() =>
     NavbarStorageManager.get(NOTIFICATIONS_STORAGE_KEY, false)
   );
   
-  // Refs for performance optimization
   const markReadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pendingMarkReadRef = useRef<Set<string>>(new Set());
   
-  // Memoized computed values
   const isArenaPage = useMemo(() => pathname === '/arena', [pathname]);
   
   const unreadNotifications = useMemo(() => 
@@ -303,24 +562,20 @@ export const Navbar: React.FC = React.memo(() => {
     [notifications]
   );
   
-  // Optimized mark as read handler with batching and debouncing
   const handleMarkAsRead = useCallback((notificationIds: string[]) => {
     if (notificationIds.length === 0) return;
     
-    // Add to pending set
     notificationIds.forEach(id => pendingMarkReadRef.current.add(id));
     
-    // Clear existing timeout
     if (markReadTimeoutRef.current) {
       clearTimeout(markReadTimeoutRef.current);
     }
     
-    // Debounce the actual marking
+    //@ts-ignore
     markReadTimeoutRef.current = setTimeout(() => {
       const idsToMark = Array.from(pendingMarkReadRef.current);
       pendingMarkReadRef.current.clear();
       
-      // Process in batches
       for (let i = 0; i < idsToMark.length; i += UNREAD_BATCH_SIZE) {
         const batch = idsToMark.slice(i, i + UNREAD_BATCH_SIZE);
         batch.forEach(id => markAsRead(id));
@@ -328,13 +583,11 @@ export const Navbar: React.FC = React.memo(() => {
     }, MARK_READ_DEBOUNCE);
   }, [markAsRead]);
   
-  // Optimized notifications toggle handler
   const handleNotificationsToggle = useCallback(() => {
     const newState = !isNotificationsOpen;
     setNotificationsOpen(newState);
     NavbarStorageManager.set(NOTIFICATIONS_STORAGE_KEY, newState);
     
-    // Mark unread notifications as read when opening
     if (newState && unreadCount > 0 && unreadNotifications.length > 0) {
       const unreadIds = unreadNotifications.map((n: any) => n.id);
       handleMarkAsRead(unreadIds);
@@ -346,27 +599,35 @@ export const Navbar: React.FC = React.memo(() => {
     NavbarStorageManager.set(NOTIFICATIONS_STORAGE_KEY, false);
   }, []);
   
-  // Memoized sign out handler
   const handleSignOut = useCallback(async () => {
     try {
       await signOut();
-      // Clear storage on sign out
       NavbarStorageManager.clear();
-      // Redirect to home page after sign out
       router.push('/');
     } catch (error) {
       console.error('Sign out error:', error);
     }
   }, [signOut, router]);
 
+  const handleCreateClick = useCallback(() => {
+    createModal.openPostModal();
+  }, [createModal]);
+
+  const handlePostCreated = useCallback(() => {
+    console.log('Post created successfully!');
+  }, []);
+
+  const handleSpaceCreated = useCallback((space: any) => {
+    console.log('Space created:', space);
+  }, []);
+
   const [isMobile, setIsMobile] = useState(false);
   
-  // Cleanup on unmount
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768); // Tailwind's 'md' breakpoint
+      setIsMobile(window.innerWidth < 768);
     }
-    handleResize(); // Initial check
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -376,17 +637,14 @@ export const Navbar: React.FC = React.memo(() => {
     };
   }, []);
   
-  // Memoized notification data to prevent unnecessary re-renders
   const notificationData = useMemo(() => notifications, [notifications]);
 
-  // Handle get started click - use context navigation
   const handleGetStarted = useCallback(() => {
     handleNavigateToAuth();
   }, [handleNavigateToAuth]);
   
   return (
     <>
-      {/* Desktop Sidebar - Always visible when user is logged in */}
       {user && (
         <DesktopSidebar 
           pathname={pathname} 
@@ -396,18 +654,19 @@ export const Navbar: React.FC = React.memo(() => {
           isNotificationsOpen={isNotificationsOpen}
           unreadCount={unreadCount}
           onNotificationsToggle={handleNotificationsToggle}
+          notificationPermission={notificationPermission}
+          onRequestPermission={requestNotificationPermission}
+          onCreateClick={handleCreateClick}
         />
       )}
       
-      {/* Mobile Navbar */}
-      <nav className="md:hidden bg-white sticky top-0 z-50">
+      <nav className="md:hidden bg-white sticky top-0 z-50 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            {/* Logo */}
             <a href="/" className="flex items-center gap-2 hover:scale-105 transition-transform">
               <div className="flex items-center gap-3">
                 <img 
-                  src="/logo-rectangle.png" 
+                  src="/logo.png" 
                   alt="Stride Campus" 
                   className="h-12 w-auto object-contain" 
                   loading="lazy"
@@ -419,7 +678,6 @@ export const Navbar: React.FC = React.memo(() => {
               </div>
             </a>
 
-            {/* Conditional rendering based on auth state */}
             {!user && !authLoading && (
               <button 
                 onClick={handleGetStarted}
@@ -431,51 +689,29 @@ export const Navbar: React.FC = React.memo(() => {
 
             {authLoading && <LoadingSkeleton />}
             
-            {/* User Actions */}
             {user && (
-              <div className="flex items-center gap-4">
-                {/* Mobile Navigation */}
-                <MobileNav />
+              <div className="flex items-center gap-3">
+                <MobileNav 
+                  user={user}
+                  username={username}
+                  onSignOut={handleSignOut}
+                  isNotificationsOpen={isNotificationsOpen}
+                  onNotificationsToggle={handleNotificationsToggle}
+                  notificationPermission={notificationPermission}
+                  onRequestPermission={requestNotificationPermission}
+                  pathname={pathname}
+                  onCreateClick={handleCreateClick}
+                />
                 
-                {/* Notifications */}
-                <button 
-                  className="relative p-2 text-muted-foreground hover:text-[#f23b36] transition-colors" 
-                  onClick={handleNotificationsToggle} 
-                  title="Notifications"
-                  aria-label={isNotificationsOpen ? "Close notifications" : "Open notifications"}
-                >
-                  {isNotificationsOpen ? <X size={16}/> : <Bell size={16}/>}
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                  )}
-                </button>
-
-                {/* Profile Menu */}
-                <div className="flex items-center gap-3">
-                  <Link href={`/u/${username}`} className="flex items-center gap-2 hover:underline">
-                    <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
-                      <User size={16} className="text-accent-foreground" />
-                    </div>
-                    <span className="text-sm font-medium text-foreground hidden sm:block">
-                      {user?.full_name}
-                    </span>
-                  </Link>
-                  <button 
-                    onClick={handleSignOut}
-                    className="p-2 text-muted-foreground hover:text-[#f23b36] transition-colors cursor-pointer"
-                    title="Sign Out"
-                    aria-label="Sign out"
-                  >
-                    <LogOut size={16} />
-                  </button>
-                </div>
+                {unreadCount > 0 && (
+                  <span className="absolute top-3 right-3 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium z-10">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </div>
             )}
           </div>
           
-          {/* Notifications Panel */}
           {isNotificationsOpen && (
             <Notifications 
               notifications={notificationData} 
@@ -486,7 +722,6 @@ export const Navbar: React.FC = React.memo(() => {
         </div>
       </nav>
 
-      {/* Desktop Notifications Panel - positioned relative to sidebar */}
       {user && isNotificationsOpen && (
         <div className="hidden md:block fixed top-4 left-24 w-80 z-50">
           <Notifications 
@@ -496,6 +731,16 @@ export const Navbar: React.FC = React.memo(() => {
           />
         </div>
       )}
+
+      {/* Create Modal */}
+      <CreateModal
+        isOpen={createModal.isOpen}
+        onClose={createModal.closeModal}
+        initialType={createModal.type}
+        initialSpaceId={createModal.initialSpaceId}
+        onPostCreated={handlePostCreated}
+        onSpaceCreated={handleSpaceCreated}
+      />
     </>
   );
 });

@@ -111,8 +111,6 @@ export default function FeedPage() {
         <div className="flex-1 min-w-0"> {/* Added min-w-0 to prevent flex overflow */}
           <FeedHeader 
             user={user}
-            onShowCreatePost={openCreatePost}
-            onShowCreateSpace={openCreateSpace}
             sortBy={sortBy}
             onSortChange={handleSortChange}
           />

@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { LibraryFile } from '@/components/library/types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -26,32 +25,34 @@ export interface Space {
   logo_url?: string;
 }
 
-export type Post = {
+export interface Post {
   id: string;
   title: string;
-  content: string;
+  content: string | null;
   space_id: string;
   author_id: string;
   is_link_post: boolean;
-  link_url?: string;
+  link_url: string | null;
   created_at: string;
   updated_at: string;
-  author?: User;
-  space?: Space;
-  vote_count: number;
-  comment_count: number;
-  share_count: number;
-  user_vote: number;
-  hashtags: Hashtag[];
-  mentions: User[];
-  resource_tags: LibraryFile[];
-};
+  vote_count?: number;
+  user_vote?: number;
+  comment_count?: number;
+  share_count?: number;
+  pinned: boolean;
+  author?: {
+    full_name: string;
+    avatar_url?: string;
+    checkmark: boolean;
+    username: string;
+  };
+  space?: {
+    name: string;
+    display_name: string;
+    id: string;
+  };
 
-export type Hashtag = {
-  id: string;
-  name: string;
-  usage_count?: number;
-};
+}
 
 export interface Comment {
   id: string;
@@ -68,7 +69,6 @@ export interface Comment {
     avatar_url?: string;
   };
   replies?: Comment[];
-  resource_tags?: LibraryFile[];
 }
 
 export interface PostVote {
@@ -100,7 +100,6 @@ export interface ResourceTag {
   comment_id: string | null;
   resource_id: string;
   created_at: string;
-  resource?: LibraryFile;
   library_id: string;
 }
 

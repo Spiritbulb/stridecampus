@@ -9,17 +9,50 @@ interface PostHeaderProps {
 
 const checkmarkImg = <img src="/check.png" alt="Verified" className="inline w-4 h-4 ml-1" />;
 
+// Random nickname generator
+const generateRandomNickname = (seed?: string): string => {
+  const adjectives = [
+    'Cool', 'Swift', 'Bright', 'Silent', 'Bold', 'Clever', 'Gentle', 'Quick',
+    'Wise', 'Brave', 'Sharp', 'Calm', 'Wild', 'Lucky', 'Swift', 'Noble',
+    'Fierce', 'Mellow', 'Zesty', 'Cosmic', 'Mystic', 'Epic', 'Ultra', 'Mega'
+  ];
+  
+  const nouns = [
+    'Wolf', 'Eagle', 'Tiger', 'Dragon', 'Phoenix', 'Lion', 'Fox', 'Bear',
+    'Hawk', 'Raven', 'Storm', 'Thunder', 'Lightning', 'Shadow', 'Flame',
+    'Star', 'Moon', 'Sun', 'Ocean', 'Mountain', 'River', 'Forest', 'Wind', 'Fire'
+  ];
+  
+  // Use seed (like post ID) to generate consistent nickname for the same post
+  let hash = 0;
+  if (seed) {
+    for (let i = 0; i < seed.length; i++) {
+      const char = seed.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+  } else {
+    hash = Math.floor(Math.random() * 1000000);
+  }
+  
+  const adjIndex = Math.abs(hash) % adjectives.length;
+  const nounIndex = Math.abs(hash >> 8) % nouns.length;
+  const number = Math.abs(hash >> 16) % 999 + 1;
+  
+  return `${adjectives[adjIndex]}${nouns[nounIndex]}${number}`;
+};
+
 export default function PostHeader({ post, user }: PostHeaderProps) {
-  let display_name = post.author?.full_name || 'Unknown User';
+  let display_name = post.author?.full_name || generateRandomNickname(post.id);
 
   if (user && post.author_id === user.id) {
     display_name = 'You';
   }
 
   return (
-    <div className="flex items-start gap-3 mb-3">
+    <div className="flex items-start gap-3">
       <img 
-        src={post.author?.avatar_url || ''} 
+        src={post.author?.avatar_url || '/default-avatar.png'} 
         alt="Avatar" 
         className="w-10 h-10 rounded-full flex-shrink-0" 
       />
