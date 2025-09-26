@@ -1,7 +1,6 @@
 'use client';
-import React from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { User } from '@/utils/supabaseClient';
-import { Users, Plus, TrendingUp, Clock, Trophy } from 'lucide-react';
 import { useCreateModal } from '@/hooks/useCreateModal';
 import CreateModal from '@/components/create/CreateModal';
 
@@ -11,22 +10,61 @@ interface FeedHeaderProps {
   onSortChange: (sort: string) => void;
   onPostCreated?: () => void;
   onSpaceCreated?: (space: any) => void;
+  spaces?: Array<{ id: string; display_name: string; member_count?: number }>;
+  selectedSpace?: string;
+  onSpaceChange?: (spaceId: string) => void;
 }
 
-export default function FeedHeader({ 
-  user, 
-  sortBy, 
+export default function FeedHeader({
+  user,
+  sortBy,
   onSortChange,
   onPostCreated,
-  onSpaceCreated
+  onSpaceCreated,
+  spaces = [],
+  selectedSpace = 'all',
+  onSpaceChange
 }: FeedHeaderProps) {
   const createModal = useCreateModal();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showLeftShadow, setShowLeftShadow] = useState(false);
+  const [showRightShadow, setShowRightShadow] = useState(false);
 
-  const sortOptions = [
-    { key: 'hot', label: 'Hot', icon: TrendingUp },
-    { key: 'new', label: 'New', icon: Clock },
-    { key: 'top', label: 'Top', icon: Trophy }
+  // Main navigation options (like Twitter's For You/Following)
+  const mainTabs = [
+    { key: 'all', label: 'For you' },
+    { key: 'following', label: 'Following' }
   ];
+
+  // Check scroll shadows
+  const updateScrollShadows = () => {
+    if (scrollContainerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+      setShowLeftShadow(scrollLeft > 0);
+      setShowRightShadow(scrollLeft < scrollWidth - clientWidth - 1);
+    }
+  };
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      updateScrollShadows();
+      container.addEventListener('scroll', updateScrollShadows);
+      return () => container.removeEventListener('scroll', updateScrollShadows);
+    }
+  }, [spaces]);
+
+  useEffect(() => {
+    updateScrollShadows();
+  }, [spaces]);
+
+  const handleTabClick = (key: string) => {
+    if (mainTabs.some(tab => tab.key === key)) {
+      onSortChange?.(key);
+    } else {
+      onSpaceChange?.(key);
+    }
+  };
 
   const handlePostCreated = () => {
     console.log('Post created successfully!');
@@ -38,83 +76,89 @@ export default function FeedHeader({
     onSpaceCreated?.(space);
   };
 
+  // Determine active tab
+  const getActiveTab = () => {
+    if (mainTabs.some(tab => tab.key === sortBy)) {
+      return sortBy;
+    }
+    return selectedSpace;
+  };
+
+  const activeTab = getActiveTab();
+
   return (
-    <div className="space-y-4 mb-6">
-      {user && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <div className="flex items-center gap-4">
-            {/* User Avatar */}
-            <div className="relative">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center ring-2 ring-white shadow-md">
-                {user.avatar_url ? (
-                  <img 
-                    src={user.avatar_url} 
-                    alt={user.full_name} 
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="text-white font-semibold text-lg">
-                    {user.full_name?.charAt(0).toUpperCase() || 'U'}
+    <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-200 mb-5">
+      <div className="relative">
+        {/* Left shadow */}
+        {showLeftShadow && (
+          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white/80 to-transparent z-10 pointer-events-none" />
+        )}
+        
+        {/* Right shadow */}
+        {showRightShadow && (
+          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white/80 to-transparent z-10 pointer-events-none" />
+        )}
+
+        {/* Scrollable tab container */}
+        <div 
+          ref={scrollContainerRef}
+          className="flex overflow-x-auto scrollbar-hide px-4 py-1"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {/* Main tabs (For you, Following) */}
+          {mainTabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => handleTabClick(tab.key)}
+              className={`
+                flex-shrink-0 px-4 py-2 mr-6 text-[15px] font-medium transition-all duration-200 relative
+                ${activeTab === tab.key
+                  ? 'text-black'
+                  : 'text-gray-500 hover:text-gray-700'
+                }
+              `}
+            >
+              {tab.label}
+              {/* Active indicator */}
+              {activeTab === tab.key && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#f23b36] rounded-full" />
+              )}
+            </button>
+          ))}
+
+          {/* Separator */}
+          {spaces.length > 0 && (
+            <div className="flex-shrink-0 w-px h-8 bg-gray-200 mr-6 self-center" />
+          )}
+
+          {/* Community spaces */}
+          {spaces.map((space) => (
+            <button
+              key={space.id}
+              onClick={() => handleTabClick(space.id)}
+              className={`
+                flex-shrink-0 px-4 py-2 mr-6 text-[15px] font-medium transition-all duration-200 relative whitespace-nowrap
+                ${activeTab === space.id
+                  ? 'text-black'
+                  : 'text-gray-500 hover:text-gray-700'
+                }
+              `}
+            >
+              <span className="flex items-center gap-2">
+                {space.display_name}
+                {space.member_count && (
+                  <span className="text-xs text-gray-400 font-normal">
+                    {space.member_count}
                   </span>
                 )}
-              </div>
-            </div>
-
-            {/* Create Post Button */}
-            <button 
-              onClick={() => createModal.openPostModal()}
-              className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl px-6 py-3 text-left transition-all duration-200 border border-gray-200 hover:border-gray-300 hover:shadow-sm group"
-            >
-              <span className="text-base group-hover:text-gray-700">
-                What's on your mind, {user.full_name?.split(' ')[0] || 'there'}?
               </span>
+              {/* Active indicator */}
+              {activeTab === space.id && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#f23b36] rounded-full" />
+              )}
             </button>
-
-            {/* Create Space Button */}
-            <div className="flex gap-2">
-              <button 
-                onClick={() => createModal.openSpaceModal()}
-                className="p-3 text-gray-500 hover:text-white hover:bg-blue-500 rounded-xl hover:shadow-md transition-all duration-200 border border-gray-200 hover:border-blue-500 group"
-                title="Create community"
-              >
-                <Users size={20} className="group-hover:scale-110 transition-transform duration-200" />
-              </button>
-            </div>
-          </div>
+          ))}
         </div>
-      )}
-
-      {/* Enhanced Sorting Options */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-2">
-        <div className="flex items-center">
-          <div className="flex bg-gray-50 rounded-lg p-1 gap-1 w-full">
-            {sortOptions.map(({ key, label, icon: Icon }) => (
-              <button 
-                key={key}
-                className={`
-                  flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex-1 justify-center
-                  ${sortBy === key 
-                    ? 'bg-white text-blue-600 shadow-sm border border-gray-200' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  }
-                `}
-                onClick={() => onSortChange(key)}
-              >
-                <Icon size={16} className={sortBy === key ? 'text-blue-500' : ''} />
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Optional: Quick stats or info bar */}
-      <div className="flex items-center justify-between text-sm text-gray-500 px-1">
-        <span>Latest posts</span>
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-          Live updates
-        </span>
       </div>
 
       {/* Create Modal */}

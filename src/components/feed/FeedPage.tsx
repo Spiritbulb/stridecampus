@@ -21,7 +21,7 @@ export default function FeedPage() {
   } = useApp();
 
   const [selectedSpace, setSelectedSpace] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<string>('new');
+  const [sortBy, setSortBy] = useState<string>('all');
   const router = useRouter();
   
   // Redirect to auth if not authenticated
@@ -34,10 +34,20 @@ export default function FeedPage() {
   // Memoize callback functions to prevent unnecessary re-renders
   const handleSpaceChange = useCallback((space: string) => {
     setSelectedSpace(space);
+    // Reset sortBy when switching to a space
+    if (space !== 'all' && space !== 'following') {
+      setSortBy('new');
+    } else {
+      setSortBy(space);
+    }
   }, []);
 
   const handleSortChange = useCallback((sort: string) => {
     setSortBy(sort);
+    // If switching to main tabs, update selectedSpace accordingly
+    if (sort === 'all' || sort === 'following') {
+      setSelectedSpace(sort);
+    }
   }, []);
 
   const openCreatePost = useCallback(() => {
@@ -105,7 +115,7 @@ export default function FeedPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mb-16">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 mt-2 mb-16">
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Main content */}
         <div className="flex-1 min-w-0"> {/* Added min-w-0 to prevent flex overflow */}
@@ -113,6 +123,9 @@ export default function FeedPage() {
             user={user}
             sortBy={sortBy}
             onSortChange={handleSortChange}
+            spaces={filteredSpaces}
+            selectedSpace={selectedSpace}
+            onSpaceChange={handleSpaceChange}
           />
           
           <PostsList 

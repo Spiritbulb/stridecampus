@@ -77,10 +77,26 @@ export const fetchPosts = async (
         resource_tags:resource_tags(library:library(id, original_name, file_type, file_size))
       `);
 
-    // Filter by space if selected
-    if (selectedSpace !== 'all') {
+    // Handle different space selections
+    if (selectedSpace === 'following' && user) {
+      // For following feed, get posts from spaces the user is a member of
+      const { data: memberSpaces } = await supabase
+        .from('space_memberships')
+        .select('space_id')
+        .eq('user_id', user.id);
+      
+      if (memberSpaces && memberSpaces.length > 0) {
+        const spaceIds = memberSpaces.map(m => m.space_id);
+        query = query.in('space_id', spaceIds);
+      } else {
+        // User isn't following any spaces, return empty array
+        return [];
+      }
+    } else if (selectedSpace !== 'all') {
+      // selectedSpace is a specific space UUID
       query = query.eq('space_id', selectedSpace);
     }
+    // If selectedSpace is 'all', don't filter by space
 
     // Apply proper sorting
     if (sortBy === 'hot') {

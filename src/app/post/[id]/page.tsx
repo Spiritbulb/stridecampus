@@ -20,6 +20,9 @@ import { formatDistanceToNow } from 'date-fns';
 import CommentSection from '@/components/feed/CommentSection';
 import Link from 'next/link';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
+import PostContent from '@/components/feed/main/PostContent';
+import PostCard from '@/components/feed/main/PostCard';
+import PostHeader from '@/components/feed/main/PostHeader';
 
 export default function PostPage() {
   const params = useParams();
@@ -287,120 +290,8 @@ export default function PostPage() {
         </button>
 
         {/* Post content */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 mb-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-            <div className="flex items-center text-sm text-gray-500 flex-wrap">
-              <Link 
-                href={`/spaces/${postData.space?.id}`}
-                className="font-medium text-[#f23b36] hover:underline"
-              >
-                {postData.space?.display_name}
-              </Link>
-              <span className="mx-1 hidden sm:inline">•</span>
-              <div className="flex items-center mt-1 sm:mt-0">
-                <img 
-                  src={postData.author?.avatar_url || '/default-avatar.png'} 
-                  alt="Avatar" 
-                  className="w-5 h-5 rounded-full mr-1" 
-                />
-                <Link 
-                  href={`/u/${postData.author?.username}`}
-                  className="hover:underline text-gray-700"
-                >
-                  <span>{postData.author?.full_name}</span>
-                  {postData.author?.checkmark && checkmarkImg}
-                </Link>
-              </div>
-              <span className="mx-1 hidden sm:inline">•</span>
-              <span className="mt-1 sm:mt-0">{formatDistanceToNow(new Date(postData.created_at))} ago</span>
-            </div>
-            
-            <button className="p-1 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors">
-              <MoreHorizontal size={20} />
-            </button>
-          </div>
-
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-4">{postData.title}</h1>
-          
-          {postData.content && (
-            <div className="text-gray-800 mb-6 whitespace-pre-wrap leading-relaxed">{postData.content}</div>
-          )}
-          
-          {postData.is_link_post && postData.link_url && (
-            <div className="flex items-center text-blue-500 mb-6">
-              <LinkIcon size={18} className="mr-2 flex-shrink-0" />
-              <a 
-                href={postData.link_url} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="hover:underline break-words text-sm sm:text-base"
-              >
-                {postData.link_url}
-              </a>
-            </div>
-          )}
-
-          {/* Resource tags */}
-          {postData.resource_tags && postData.resource_tags.length > 0 && (
-            <div className="mb-6">
-              <div className="flex items-center text-sm text-gray-700 mb-2">
-                <FileText size={16} className="mr-2" />
-                <span>Attached resources:</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {postData.resource_tags.map(resource => (
-                  <a
-                    key={resource.id}
-                    href={`https://media.stridecampus.com/${resource.filename}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full hover:bg-blue-100 transition-colors border border-blue-100"
-                  >
-                    {resource.original_name}
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Post actions */}
-          <div className="flex items-center gap-4 text-gray-500 pt-4 border-t border-gray-100">
-            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => handleVote(postData.id, 1)}
-                className={`p-1.5 rounded-md transition-colors ${postData.user_vote === 1 ? 'text-[#f23b36] bg-white shadow-sm' : 'text-gray-500 hover:text-[#f23b36] hover:bg-gray-50'}`}
-              >
-                <ArrowUp size={18} />
-              </button>
-              <span className="text-sm font-medium min-w-[2rem] text-center text-gray-700">{postData.vote_count}</span>
-              <button
-                onClick={() => handleVote(postData.id, -1)}
-                className={`p-1.5 rounded-md transition-colors ${postData.user_vote === -1 ? 'text-blue-500 bg-white shadow-sm' : 'text-gray-500 hover:text-blue-500 hover:bg-gray-50'}`}
-              >
-                <ArrowDown size={18} />
-              </button>
-            </div>
-
-            <button className="flex items-center gap-1.5 hover:bg-gray-100 p-1.5 rounded-md transition-colors">
-              <MessageSquare size={18} />
-              <span className="text-sm">{postData.comment_count}</span>
-            </button>
-
-            <button 
-              onClick={() => handleShare(postData.id)}
-              className="flex items-center gap-1.5 hover:bg-gray-100 p-1.5 rounded-md transition-colors"
-            >
-              <Share size={18} />
-              <span className="text-sm">{postData.share_count}</span>
-            </button>
-
-            <button className="flex items-center gap-1.5 hover:bg-gray-100 p-1.5 rounded-md transition-colors">
-              <Bookmark size={18} />
-              <span className="text-sm hidden sm:inline">Save</span>
-            </button>
-          </div>
-        </div>
-
+        <PostHeader post={postData} user={user}/>
+        <PostContent post={postData}/>
         {/* Comment section */}
         <CommentSection
           postId={postData.id}

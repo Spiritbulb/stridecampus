@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useCreateModal } from '@/hooks/useCreateModal';
 import CreateModal from '@/components/create/CreateModal';
 import { Home01Icon, UserSharingIcon, PlusSignIcon, Book01Icon, PeerToPeer01FreeIcons, MeetingRoomIcon, VersusFreeIcons, VersusIcon, RankingIcon } from '@hugeicons/core-free-icons';
@@ -32,7 +32,8 @@ export const Footer: React.FC = () => {
     {
       name: 'Create',
       icon: PlusSignIcon,
-      isActive: pathname === '/create' || pathname.startsWith('/create/')
+      isActive: pathname === '/create' || pathname.startsWith('/create/'),
+      isAction: true
     },
     {
       name: 'Library',
@@ -53,6 +54,8 @@ export const Footer: React.FC = () => {
   const handleSpaceCreated = (space: any) => {
     console.log('Space created:', space);
   };
+
+  const router = useRouter();
 
   // AI Modal Component
   const AIModal = () => (
@@ -128,8 +131,7 @@ export const Footer: React.FC = () => {
                 return (
                   <button
                     key={item.name}
-                    onClick={item.name === 'Create' ? handleCreateClick : undefined}
-                    {...(item.name !== 'Create' ? { href: item.href } : {})}
+                    onClick={() => item.isAction ? handleCreateClick() : router.push(`${item.href}`)}
                     className={`flex flex-col items-center justify-center p-1 text-xs ${
                       item.isActive
                         ? 'text-[#f23b36]'

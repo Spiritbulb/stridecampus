@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Upload, Link, FileText, Youtube, Globe } from 'lucide-react';
 import { User, SUBJECT_OPTIONS } from './types';
 import { uploadFile, uploadResourceLink, RESOURCE_TYPE_OPTIONS, SUPPORTED_FILE_TYPES } from '@/utils/r2';
@@ -22,6 +22,24 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
     tags: '',
     subject: ''
   });
+
+  // Extract YouTube video ID from filename as fallback
+  const extractYoutubeIdFromFilename = (filename: string): string | null => {
+    // Common YouTube ID patterns in filenames
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/i,
+      /([a-zA-Z0-9_-]{11})\.(mp4|avi|mov|mkv|webm)$/i,
+      /^([a-zA-Z0-9_-]{11})$/i
+    ];
+    
+    for (const pattern of patterns) {
+      const match = filename.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    return null;
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -57,6 +75,28 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
     setUploadForm({...uploadForm, file});
   };
 
+  // Enhanced URL validation and YouTube ID extraction
+  const getYouTubeUrl = (): string => {
+    // If URL is explicitly provided and valid, use it
+    if (uploadForm.url && validateUrl(uploadForm.url)) {
+      if (uploadForm.resourceType === 'youtube' && validateYouTubeUrl(uploadForm.url)) {
+        return uploadForm.url;
+      } else if (uploadForm.resourceType !== 'youtube') {
+        return uploadForm.url;
+      }
+    }
+
+    // For YouTube resources, try to extract from filename as fallback
+    if (uploadForm.resourceType === 'youtube' && uploadForm.file) {
+      const videoId = extractYoutubeIdFromFilename(uploadForm.file.name);
+      if (videoId) {
+        return `https://www.youtube.com/watch?v=${videoId}`;
+      }
+    }
+
+    return uploadForm.url;
+  };
+
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -75,7 +115,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
     
     try {
       const tagsToSend = uploadForm.tags.trim() || 'educational';
-      
+      let finalUrl = uploadForm.url;
+
       if (uploadForm.resourceType === 'file') {
         if (!uploadForm.file) {
           toast({
@@ -100,7 +141,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
           description: 'File uploaded successfully'
         });
       } else {
-        if (!uploadForm.url) {
+        // Use enhanced URL handling
+        finalUrl = getYouTubeUrl();
+        
+        if (!finalUrl) {
           toast({
             title: 'URL required',
             description: 'Please enter a valid URL',
@@ -109,7 +153,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
           return;
         }
         
-        if (!validateUrl(uploadForm.url)) {
+        if (!validateUrl(finalUrl)) {
           toast({
             title: 'Invalid URL',
             description: 'Please enter a valid URL',
@@ -117,9 +161,19 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
           });
           return;
         }
+
+        // Additional validation for YouTube URLs
+        if (uploadForm.resourceType === 'youtube' && !validateYouTubeUrl(finalUrl)) {
+          toast({
+            title: 'Invalid YouTube URL',
+            description: 'Please enter a valid YouTube URL',
+            variant: 'destructive'
+          });
+          return;
+        }
         
         await uploadResourceLink(
-          uploadForm.url,
+          finalUrl,
           user.id,
           uploadForm.description,
           tagsToSend,
@@ -171,7 +225,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
 
   const getResourceTypePlaceholder = (type: string) => {
     switch (type) {
-      case 'youtube': return 'https://www.youtube.com/watch?v=...';
+      case 'youtube': return 'https://www.youtube.com/watch?v=... or upload a file with YouTube ID in name';
       case 'website': return 'https://example.com';
       case 'article': return 'https://arxiv.org/abs/...';
       case 'document_link': return 'https://docs.google.com/document/...';
@@ -180,10 +234,27 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
     }
   };
 
+  // Detect mobile devices
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   return (
-    <div className="fixed inset-0 flex backdrop-blur items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
+    <div className={`fixed inset-0 flex backdrop-blur items-center justify-center p-4 z-50 ${isMobile ? 'items-end md:items-center' : ''}`}>
+      <div className={`bg-white rounded-2xl p-6 w-full max-w-md overflow-y-auto ${
+        isMobile 
+          ? 'max-h-[95vh] rounded-b-none shadow-2xl mb-0' 
+          : 'max-h-[90vh]'
+      }`}>
+        <div className="flex justify-between items-center mb-6 sticky top-0 bg-white pb-4 pt-2">
           <h2 className="text-2xl font-bold text-gray-900">Upload Resource</h2>
           <button
             onClick={onClose}
@@ -194,7 +265,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
           </button>
         </div>
 
-        <form onSubmit={handleUpload} className="space-y-4">
+        <form onSubmit={handleUpload} className="space-y-4 pb-1">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Resource Type *
@@ -232,6 +303,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
               {uploadForm.file && (
                 <p className="text-xs text-gray-500 mt-2">
                   File type: {uploadForm.file.type}, Size: {(uploadForm.file.size / 1024 / 1024).toFixed(2)}MB
+                  {uploadForm.file.type === 'youtube' && extractYoutubeIdFromFilename(uploadForm.file.name) && (
+                    <span className="block text-green-600">
+                      YouTube ID detected: {extractYoutubeIdFromFilename(uploadForm.file.name)}
+                    </span>
+                  )}
                 </p>
               )}
             </div>
@@ -251,6 +327,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
                 placeholder={getResourceTypePlaceholder(uploadForm.resourceType)}
                 required={uploadForm.resourceType !== 'file'}
               />
+              {uploadForm.resourceType === 'youtube' && (
+                <p className="text-xs text-gray-500 mt-2">
+                  You can also upload a file with YouTube ID in the filename as fallback
+                </p>
+              )}
             </div>
           )}
 
@@ -309,7 +390,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ user, onClose, onUploa
             />
           </div>
 
-          <div className="flex gap-3 pt-4">
+          <div className={`flex gap-3 pt-4 ${isMobile ? 'pb-4' : ''}`}>
             <button
               type="button"
               onClick={onClose}

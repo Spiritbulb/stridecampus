@@ -31,9 +31,10 @@ export type Post = {
   title: string;
   content: string;
   space_id: string;
+  pinned: boolean;
   author_id: string;
   is_link_post: boolean;
-  link_url?: string;
+  link_url?: string[];
   created_at: string;
   updated_at: string;
   author?: User;

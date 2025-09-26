@@ -1,12 +1,12 @@
 // PostForm.tsx
 'use client';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/utils/supabaseClient';
 import { Space } from '@/utils/supabaseClient';
 import { LibraryFile } from '@/components/library/types';
 import { 
-  Link2, FileText, Plus, X, ChevronDown, 
-  Hash, AlignLeft, Paperclip, Globe, AtSign
+  FileText, Plus, X, ChevronDown, 
+  Hash, AlignLeft, Paperclip, Globe, AtSign, Link2
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useApp } from '@/contexts/AppContext';
@@ -46,8 +46,7 @@ export default function PostForm({
   const [formData, setFormData] = useState({
     content: '',
     spaceId: initialSpaceId || spaces.find(s => s.name === 'stride')?.id || '',
-    isLinkPost: false,
-    linkUrl: ''
+    linkUrls: [] as string[] // Changed from isLinkPost and linkUrl to array
   });
 
   const [selectedResources, setSelectedResources] = useState<LibraryFile[]>([]);
@@ -57,6 +56,29 @@ export default function PostForm({
   const [cursorPosition, setCursorPosition] = useState(0);
 
   const selectedSpace = spaces.find(s => s.id === formData.spaceId);
+
+  // Function to extract URLs from content
+  const extractUrls = (content: string): string[] => {
+    const urlRegex = /https?:\/\/[^\s<>"]+|www\.[^\s<>"]+/g;
+    const matches = content.match(urlRegex) || [];
+    
+    // Normalize URLs (add https if starts with www)
+    return matches.map(url => {
+      if (url.startsWith('www.')) {
+        return 'https://' + url;
+      }
+      return url;
+    });
+  };
+
+  // Update linkUrls whenever content changes
+  useEffect(() => {
+    const urls = extractUrls(formData.content);
+    setFormData(prev => ({
+      ...prev,
+      linkUrls: urls
+    }));
+  }, [formData.content]);
 
   // Generate dynamic title from content
   const generateTitle = (content: string): string => {
@@ -74,14 +96,14 @@ export default function PostForm({
   const extractHashtags = (content: string): string[] => {
     const hashtagRegex = /#[\w\u00C0-\u017F]+/g;
     const matches = content.match(hashtagRegex) || [];
-    return matches.map(tag => tag.substring(1).toLowerCase()); // Remove # and lowercase
+    return matches.map(tag => tag.substring(1).toLowerCase());
   };
 
   // Extract user mentions from content
   const extractMentions = (content: string): string[] => {
     const mentionRegex = /@[\w\u00C0-\u017F]+/g;
     const matches = content.match(mentionRegex) || [];
-    return matches.map(mention => mention.substring(1).toLowerCase()); // Remove @ and lowercase
+    return matches.map(mention => mention.substring(1).toLowerCase());
   };
 
   // Handle content change and trigger suggestions
@@ -89,7 +111,7 @@ export default function PostForm({
     const value = e.target.value;
     const position = e.target.selectionStart;
     
-    setFormData({ ...formData, content: value });
+    setFormData(prev => ({ ...prev, content: value }));
     setCursorPosition(position);
 
     // Check for hashtag or mention trigger
@@ -97,11 +119,9 @@ export default function PostForm({
     const lastWord = textBeforeCursor.split(/\s/).pop() || '';
 
     if (lastWord.startsWith('#') && lastWord.length > 1) {
-      // Show hashtag suggestions
       await fetchHashtagSuggestions(lastWord.substring(1));
       setShowingSuggestions('hashtags');
     } else if (lastWord.startsWith('@') && lastWord.length > 1) {
-      // Show user suggestions
       await fetchUserSuggestions(lastWord.substring(1));
       setShowingSuggestions('users');
     } else {
@@ -153,7 +173,6 @@ export default function PostForm({
     const textBeforeCursor = content.substring(0, position);
     const textAfterCursor = content.substring(position);
     
-    // Find the start of the current word (# or @)
     const words = textBeforeCursor.split(/\s/);
     const currentWord = words[words.length - 1];
     const wordStart = textBeforeCursor.lastIndexOf(currentWord);
@@ -164,10 +183,9 @@ export default function PostForm({
       prefix + suggestion + ' ' + 
       textAfterCursor;
 
-    setFormData({ ...formData, content: newContent });
+    setFormData(prev => ({ ...prev, content: newContent }));
     setShowingSuggestions(null);
     
-    // Focus back to textarea
     setTimeout(() => {
       if (contentRef.current) {
         const newPosition = wordStart + prefix.length + suggestion.length + 1;
@@ -218,15 +236,6 @@ export default function PostForm({
       return;
     }
 
-    if (formData.isLinkPost && !formData.linkUrl.trim()) {
-      toast({
-        title: 'Link URL required',
-        description: 'Please add a URL for your link post',
-        variant: 'destructive'
-      });
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
@@ -245,8 +254,8 @@ export default function PostForm({
           content: formData.content.trim(),
           space_id: formData.spaceId,
           author_id: user.id,
-          is_link_post: formData.isLinkPost,
-          link_url: formData.isLinkPost ? formData.linkUrl.trim() : null
+          is_link_post: formData.linkUrls.length > 0, // Set to true if there are links
+          link_url: formData.linkUrls.length > 0 ? formData.linkUrls : null // Use the array
         })
         .select()
         .single();
@@ -255,7 +264,6 @@ export default function PostForm({
 
       // Handle hashtags
       if (hashtags.length > 0) {
-        // Insert or update hashtags
         for (const tagName of hashtags) {
           const { data: existingTag, error: tagCheckError } = await supabase
             .from('hashtags')
@@ -271,7 +279,6 @@ export default function PostForm({
           let tagId;
           if (existingTag) {
             tagId = existingTag.id;
-            // Increment usage count - first get current count
             const { data: currentTag } = await supabase
               .from('hashtags')
               .select('usage_count')
@@ -284,7 +291,6 @@ export default function PostForm({
               .update({ usage_count: newCount })
               .eq('id', tagId);
           } else {
-            // Create new hashtag
             const { data: newTag, error: newTagError } = await supabase
               .from('hashtags')
               .insert({ name: tagName, usage_count: 1 })
@@ -298,7 +304,6 @@ export default function PostForm({
             tagId = newTag.id;
           }
 
-          // Link hashtag to post
           await supabase
             .from('post_hashtags')
             .insert({ post_id: post.id, hashtag_id: tagId });
@@ -343,8 +348,7 @@ export default function PostForm({
       setFormData({
         content: '',
         spaceId: initialSpaceId || spaces.find(s => s.name === 'stride')?.id || '',
-        isLinkPost: false,
-        linkUrl: ''
+        linkUrls: []
       });
       setSelectedResources([]);
       
@@ -361,8 +365,7 @@ export default function PostForm({
     }
   };
 
-  const canSubmit = formData.content.trim() && formData.spaceId && 
-    (!formData.isLinkPost || formData.linkUrl.trim());
+  const canSubmit = formData.content.trim() && formData.spaceId;
 
   return (
     <form onSubmit={handleSubmit} className="p-6 space-y-6">
@@ -395,7 +398,7 @@ export default function PostForm({
                 key={space.id}
                 type="button"
                 onClick={() => {
-                  setFormData({ ...formData, spaceId: space.id });
+                  setFormData(prev => ({ ...prev, spaceId: space.id }));
                   setShowSpaceDropdown(false);
                 }}
                 className="w-full flex items-center gap-3 p-3 text-left hover:bg-gray-50 transition-colors"
@@ -439,7 +442,7 @@ export default function PostForm({
           ref={contentRef}
           value={formData.content}
           onChange={handleContentChange}
-          placeholder="What's on your mind? Use #hashtags and @mentions to engage with others..."
+          placeholder="What's on your mind? Use #hashtags and @mentions to engage with others. Links will be automatically detected."
           className="w-full min-h-[120px] p-4 text-base border border-gray-200 rounded-lg focus:border-[#f23b36] focus:outline-none transition-colors resize-none"
           maxLength={2000}
         />
@@ -489,39 +492,18 @@ export default function PostForm({
           </div>
         )}
 
-        <div className="flex justify-end mt-2">
+        <div className="flex justify-between mt-2">
+          {/* Show detected links */}
+          {formData.linkUrls.length > 0 && (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Link2 size={14} />
+              <span>Detected {formData.linkUrls.length} link{formData.linkUrls.length !== 1 ? 's' : ''}</span>
+            </div>
+          )}
           <span className={`text-sm ${formData.content.length > 1800 ? 'text-red-500' : 'text-gray-400'}`}>
             {formData.content.length}/2000
           </span>
         </div>
-      </div>
-
-      {/* Link post toggle and URL */}
-      <div className="space-y-3">
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={formData.isLinkPost}
-            onChange={(e) => setFormData({ ...formData, isLinkPost: e.target.checked })}
-            className="w-4 h-4 text-[#f23b36] border-gray-300 rounded focus:ring-[#f23b36]"
-          />
-          <div className="flex items-center gap-2">
-            <Link2 size={16} className="text-gray-600" />
-            <span className="text-gray-900">Add a link to this post</span>
-          </div>
-        </label>
-
-        {formData.isLinkPost && (
-          <div className="pl-7">
-            <input
-              type="url"
-              value={formData.linkUrl}
-              onChange={(e) => setFormData({ ...formData, linkUrl: e.target.value })}
-              placeholder="https://example.com"
-              className="w-full p-3 border border-gray-200 rounded-lg focus:border-[#f23b36] focus:outline-none transition-colors"
-            />
-          </div>
-        )}
       </div>
 
       {/* Resources */}

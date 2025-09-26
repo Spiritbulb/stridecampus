@@ -47,7 +47,7 @@ export function useAuth() {
         }
       }
     };
-
+//@ts-ignore
     timeoutId = setTimeout(() => {
       if (isMounted && !initialized) {
         console.warn('Auth initialization timeout');

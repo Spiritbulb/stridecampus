@@ -98,7 +98,7 @@ class StorageManager {
         console.warn(`Failed to persist ${key}:`, error);
       }
     }, debounceMs);
-    
+    //@ts-ignore
     this.writeTimeouts.set(key, timeout);
   }
   
@@ -244,7 +244,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(transitionTimeoutRef.current);
     }
     dispatch({ type: 'SET_TRANSITIONING', payload: true });
-    
+    //@ts-ignore
     transitionTimeoutRef.current = setTimeout(() => {
       dispatch({ type: 'BATCH_UPDATE', payload: { 
         currentScreen: nextScreen, 

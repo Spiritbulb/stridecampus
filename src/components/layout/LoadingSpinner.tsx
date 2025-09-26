@@ -57,7 +57,7 @@ export const LoadingSpinner = ({
     if (reportTimeoutRef.current) {
       clearTimeout(reportTimeoutRef.current);
     }
-    
+    //@ts-ignore
     reportTimeoutRef.current = setTimeout(() => {
       setShowReportLink(true);
     }, showReportDelay);
@@ -66,7 +66,7 @@ export const LoadingSpinner = ({
   // Optimized progress simulation
   const simulateProgress = useCallback(() => {
     cleanup(); // Clear any existing intervals
-    
+    //@ts-ignore
     intervalRef.current = setInterval(() => {
       setProgress(prev => {
         // More realistic progress curve - slower as it approaches completion
@@ -88,6 +88,7 @@ export const LoadingSpinner = ({
       setProgress(0);
       setShowReportLink(false);
       // Small delay before starting progress for better UX
+      //@ts-ignore
       timeoutRef.current = setTimeout(() => {
         simulateProgress();
         setupReportLinkTimeout();
@@ -99,6 +100,7 @@ export const LoadingSpinner = ({
       cleanup();
       
       // Hide the spinner after a short delay to show completion
+      //@ts-ignore
       timeoutRef.current = setTimeout(() => {
         setIsVisible(false);
         // Reset progress after hiding for next time
