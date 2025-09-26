@@ -11,7 +11,7 @@ export default function App() {
         translucent={Platform.OS === 'android'}
       />
       <WebView 
-        source={{ uri: 'https://stridecampus.com' }}
+        source={{ uri: 'https://app.stridecampus.com' }}
         style={styles.webview}
         allowsInlineMediaPlayback
         javaScriptEnabled
