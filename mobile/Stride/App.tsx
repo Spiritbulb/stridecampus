@@ -1,13 +1,14 @@
-import React, { useRef } from 'react';
-import { View, StyleSheet, StatusBar, Platform, BackHandler } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import { View, StyleSheet, StatusBar, Platform, BackHandler, Alert, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 export default function App() {
   const webViewRef = useRef(null);
-  const [canGoBack, setCanGoBack] = React.useState(false);
+  const [canGoBack, setCanGoBack] = useState(false);
+  const [hasInitialLoad, setHasInitialLoad] = useState(false);
 
   // Handle back button press
-  React.useEffect(() => {
+  useEffect(() => {
     const backHandler = BackHandler.addEventListener(
       'hardwareBackPress',
       () => {
@@ -23,8 +24,27 @@ export default function App() {
     return () => backHandler.remove();
   }, [canGoBack]);
 
-  const onNavigationStateChange = (navState: any) => {
+  //@ts-ignore
+  const onNavigationStateChange = (navState) => {
     setCanGoBack(navState.canGoBack);
+  };
+
+  const onLoadEnd = () => {
+    if (!hasInitialLoad) {
+      setHasInitialLoad(true);
+    }
+  };
+
+  //@ts-ignore
+  const onError = (syntheticEvent) => {
+    const { nativeEvent } = syntheticEvent;
+    console.error('WebView error:', nativeEvent);
+    
+    Alert.alert(
+      "Connection Error",
+      "Unable to load content. Please check your internet connection.",
+      [{ text: "OK" }]
+    );
   };
 
   return (
@@ -34,21 +54,27 @@ export default function App() {
         backgroundColor="#ffffff"
         translucent={Platform.OS === 'android'}
       />
+      
       <WebView 
         ref={webViewRef}
         source={{ uri: 'https://app.stridecampus.com' }}
         style={styles.webview}
         allowsInlineMediaPlayback
-        javaScriptEnabled
-        domStorageEnabled
-        startInLoadingState
-        scalesPageToFit
-        sharedCookiesEnabled
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        startInLoadingState={true}
+        scalesPageToFit={true}
+        sharedCookiesEnabled={true}
         onNavigationStateChange={onNavigationStateChange}
-        // Cache settings
+        onLoadEnd={onLoadEnd}
+        onError={onError}
+        // Cache settings for offline availability
         cacheEnabled={true}
-        cacheMode="LOAD_CACHE_ONLY"
+        cacheMode="LOAD_CACHE_ELSE_NETWORK" // This will use cache when available
         applicationNameForUserAgent="StrideCampusApp/1.0"
+        // Additional caching options
+        thirdPartyCookiesEnabled={true}
+        allowFileAccess={true}
       />
     </View>
   );

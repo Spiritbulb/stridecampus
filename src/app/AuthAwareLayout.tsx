@@ -31,7 +31,7 @@ export function AuthAwareLayout({ children, onRefresh }: AuthAwareLayoutProps) {
 
   return (
     <>
-      {isAuthenticated ? <Navbar /> : <NoAuthNavbar />}
+      {isAuthenticated ? <Navbar /> : ''}
       
       {/* Main Content Area with Pull-to-Refresh */}
       <div 
@@ -123,7 +123,7 @@ export function AuthAwareLayout({ children, onRefresh }: AuthAwareLayoutProps) {
       {/* Conditionally render sidebars based on auth */}
       {isAuthenticated && <AppSidebar />}
       
-      {isAuthenticated ? <Footer /> : <NoAuthFooter />}
+      {isAuthenticated ? <Footer /> : ''}
     </>
   );
 }
