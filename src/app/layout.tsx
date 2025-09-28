@@ -6,6 +6,7 @@ import { AppProvider } from '@/contexts/AppContext'
 import { AuthAwareLayout } from './AuthAwareLayout';
 import type { Metadata } from 'next'
 import { PWAProvider } from '@/contexts/PWAProvider'
+import { Toaster } from '@/components/ui/toaster'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -116,6 +117,7 @@ export default function RootLayout({
           <AuthAwareLayout>
             {children}
           </AuthAwareLayout>
+          <Toaster />
         </AppProvider>
       </body>
     </html>

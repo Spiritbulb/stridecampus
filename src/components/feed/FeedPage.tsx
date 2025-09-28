@@ -138,7 +138,7 @@ export default function FeedPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 mt-2 mb-16" style={{
+    <div className="max-w-6xl mx-auto sm:px-6 lg:px-8 pb-8 mt-2 mb-16" style={{
         transform: `translateY(${pullDistance}px)`,
         transition: isPulling ? 'none' : 'transform 0.3s ease-out'
       }}>

@@ -10,6 +10,8 @@ import { supabase } from '@/utils/supabaseClient';
 import { Calendar, MapPin, Link as LinkIcon, MoreHorizontal, Plus, User2, Camera, X } from 'lucide-react';
 import PostCard from '@/components/feed/main/ProfilePostCard';
 import { useRouter } from 'next/navigation';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Message01Icon } from '@hugeicons/core-free-icons';
 
 interface ProfileData {
   user: User;
@@ -55,6 +57,18 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
   const [bannerPreview, setBannerPreview] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const router = useRouter();
+
+  // Chat functionality
+  const handleStartChat = useCallback(() => {
+    if (!isAuthenticated) {
+      handleNavigateToAuth();
+      return;
+    }
+    
+    if (profileData) {
+      router.push(`/chats?username=${profileData.user.username}`);
+    }
+  }, [isAuthenticated, handleNavigateToAuth, profileData, router]);
 
   const openCreatePost = useCallback(() => {
     router.push('/create?type=post');
@@ -444,6 +458,7 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
         {/* Action Buttons */}
         <div className="px-4 sm:px-6 flex justify-end mt-3">
           {!isOwnProfile && isAuthenticated && (
+            <div className='grid grid-cols-2 gap-2'>
             <button
               onClick={handleFollow}
               disabled={isFollowLoading}
@@ -455,14 +470,39 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
             >
               {isFollowLoading ? 'Loading...' : isFollowing ? 'Following' : 'Follow'}
             </button>
+            <button
+                onClick={handleStartChat}
+                className="px-2 py-1.5 border rounded-lg text-sm font-medium bg-white text-[#f23b36] border-[#f23b36] hover:bg-[#f23b36] transition-colors cursor-pointer hover:text-white"
+              >
+                <HugeiconsIcon 
+                  icon={Message01Icon} 
+                  size={24} 
+                  color="currentColor" 
+                  strokeWidth={1.5} 
+                />
+              </button>
+            </div>
           )}
           {!isOwnProfile && !isAuthenticated && (
+            <div className='grid grid-cols-2 gap-2'>
             <button
               onClick={handleNavigateToAuth}
               className="px-4 py-2 border rounded-full text-sm font-medium transition-colors bg-[#f23b36] text-white border-transparent hover:bg-red-600"
             >
               Follow
             </button>
+            <button
+                onClick={handleStartChat}
+                className="px-4 py-1.5 border rounded-lg text-sm font-medium bg-white text-[#f23b36] border-[#f23b36] hover:bg-[#f23b36] transition-colors cursor-pointer hover:text-white"
+              >
+                <HugeiconsIcon 
+                  icon={Message01Icon} 
+                  size={24} 
+                  color="currentColor" 
+                  strokeWidth={1.5} 
+                />
+              </button>
+              </div>
           )}
           {isOwnProfile && (
             <>
@@ -472,22 +512,6 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
               >
                 Edit Profile
               </button>
-              <div className="ml-2 relative">
-                <div className="relative group">
-                  <div className="p-1.5 border rounded-lg text-[#f23b36] border-[#f23b36] hover:bg-[#f23b36] hover:text-white transition-colors cursor-pointer flex items-center">
-                    <Plus className="w-5 h-5 transform group-hover:rotate-45 transition-transform" />
-                    <span className="ml-1">Create</span>
-                  </div>
-                  <div className="absolute top-full left-0 mt-1 w-full bg-white border border-[#f23b36] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
-                    <div className="p-2 hover:bg-[#f23b36] hover:text-white cursor-pointer" onClick={openCreatePost}>
-                      Post
-                    </div>
-                    <div className="p-2 hover:bg-[#f23b36] hover:text-white cursor-pointer" onClick={openCreateSpace}>
-                      Space
-                    </div>
-                  </div>
-                </div>
-              </div>
             </>
           )}
         </div>

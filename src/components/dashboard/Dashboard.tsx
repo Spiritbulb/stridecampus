@@ -151,9 +151,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, transactions, leader
             />
           </div>
           
-        </div>
-        {/* Library */}
+          {/* Library */}
+          <div className="animate-in slide-in-from-right-4 duration-500" style={{ animationDelay: '500ms' }}>
           <MyLibrary user={user}/>
+          </div>
+
+        </div>
+        
       </div>
     </div>
   );

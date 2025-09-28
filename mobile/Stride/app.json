@@ -12,11 +12,15 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.spiritbulb.stride",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["background-fetch", "remote-notification"]
       }
     },
     "android": {
@@ -26,8 +30,30 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.spiritbulb.stride"
+      "package": "com.spiritbulb.stride",
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK",
+        "com.google.android.c2dm.permission.RECEIVE"
+      ],
+      "googleServicesFile": "./google-services.json"
     },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification_icon.png",
+          "color": "#f23b36",
+          "sounds": ["./assets/notification_sound.wav"],
+          "mode": "production"
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "7ad0defb-2d05-4a03-ad2b-bfcff8ea40b8"

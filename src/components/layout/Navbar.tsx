@@ -6,12 +6,13 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useApp } from '@/contexts/AppContext';
 import Notifications from './Notifications';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname as useNextPathname } from 'next/navigation';
 import { EnvelopeIcon } from '@heroicons/react/24/outline';
 import { useCreateModal } from '@/hooks/useCreateModal';
 import CreateModal from '@/components/create/CreateModal';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Home01Icon, Book01Icon, PeerToPeer01FreeIcons, PlusSignIcon, RankingIcon, Message01Icon, Setting06FreeIcons, Settings01FreeIcons } from '@hugeicons/core-free-icons';
+import DonationSection from '@/components/common/DonationSection';
 
 // Constants
 const NOTIFICATIONS_STORAGE_KEY = 'notificationsOpen';
@@ -56,29 +57,8 @@ class NavbarStorageManager {
   }
 }
 
-// Custom hook for pathname
-function usePathname() {
-  const [pathname, setPathname] = useState(() => 
-    typeof window !== 'undefined' ? window.location.pathname : '/'
-  );
-  
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    const handleLocationChange = () => {
-      const newPathname = window.location.pathname;
-      setPathname(current => current !== newPathname ? newPathname : current);
-    };
-    
-    window.addEventListener('popstate', handleLocationChange);
-    
-    return () => {
-      window.removeEventListener('popstate', handleLocationChange);
-    };
-  }, []);
-  
-  return pathname;
-}
+// Use Next.js usePathname for real-time pathname updates
+const usePathname = useNextPathname;
 
 // Notification Button Component
 const NotificationButton = React.memo(({ 
@@ -267,6 +247,11 @@ const MobileNavigation = React.memo(({
     setMenuOpen(false);
   };
 
+  // Close menu when pathname changes (navigation occurs)
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
@@ -299,7 +284,7 @@ const MobileNavigation = React.memo(({
             onClick={() => setMenuOpen(false)}
           />
           
-          <div className="fixed top-0 left-0 h-full w-80 max-w-full bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out md:hidden">
+          <div className="fixed top-0 left-0 h-full w-80 max-w-full bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out md:hidden overflow-y-auto">
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <a href={`/u/${user?.username}`}>
               <div className="flex items-center gap-3">
@@ -334,8 +319,14 @@ const MobileNavigation = React.memo(({
                   return (
                     <button
                       key={item.name}
-                      onClick={() => item.isAction ? handleItemClick(item) : router.push(`${item.href}`) }
-                      
+                      onClick={() => {
+                        if (item.isAction) {
+                          handleItemClick(item);
+                        } else {
+                          setMenuOpen(false);
+                          router.push(`${item.href}`);
+                        }
+                      }}
                       className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 w-full text-left ${
                         isActive
                           ? 'bg-[#f23b36] text-white shadow-sm'
@@ -355,6 +346,10 @@ const MobileNavigation = React.memo(({
                 })}
               </div>
             </nav>
+
+            <div className="p-4 border-t border-gray-200">
+              <DonationSection variant="compact" />
+            </div>
 
             <div className="p-4 border-t border-gray-200 space-y-3">
               <button

@@ -272,7 +272,7 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
     
     return (
       <div className="min-h-screen">
-        <div className="max-w-6xl sm:px-6 lg:px-8 py-8 content-max-width">
+        <div className="max-w-7xl sm:px-3 lg:px-5 py-8 content-max-width">
           <LibraryHeader 
             user={user} 
             onUploadClick={() => setShowUploadModal(true)}
@@ -343,7 +343,7 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
 
   return (
     <div className="min-h-screen">
-      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8 content-max-width">
+      <div className="mx-auto sm:px-6 lg:px-8 py-8 content-max-width">
         <LibraryHeader 
           user={user} 
           onUploadClick={() => setShowUploadModal(true)} 

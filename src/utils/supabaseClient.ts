@@ -127,6 +127,11 @@ export interface User {
   bio?: string;
   year_of_study?: string;
   major?: string;
+  email_notifications?: boolean;
+  push_notifications?: boolean;
+  marketing_emails?: boolean;
+  profile_visibility?: string;
+  expo_push_token?: string | null;
   created_at: string;
   updated_at: string;
 }
