@@ -123,14 +123,36 @@ export function useNotifications(userId: string | undefined) {
 
     const notificationOptions: NotificationOptions = {
       body: notification.message,
-      icon: '/logo.png', // Use your logo
+      icon: '/logo.png',
       badge: '/logo.png',
-      tag: notification.id, // Prevent duplicate notifications
+      tag: notification.id,
       data: {
         notificationId: notification.id,
+        type: notification.type,
         url: window.location.href
-      }
+      },
+      requireInteraction: false
     };
+
+    // Customize based on notification type
+    switch (notification.type) {
+      case 'message':
+        notificationOptions.icon = '/logo.png'; // Could use a message icon
+        notificationOptions.requireInteraction = true; // Keep message notifications visible
+        break;
+      case 'follow':
+        notificationOptions.icon = '/logo.png'; // Could use a heart icon
+        break;
+      case 'announcement':
+      case 'event':
+        notificationOptions.requireInteraction = true; // Important announcements stay visible
+        notificationOptions.icon = '/logo.png';
+        break;
+      case 'study_reminder':
+        notificationOptions.icon = '/logo.png'; // Could use a book icon
+        notificationOptions.requireInteraction = true;
+        break;
+    }
 
     // Show the notification
     const n = new Notification(notification.title, notificationOptions);
@@ -138,15 +160,35 @@ export function useNotifications(userId: string | undefined) {
     // Handle click on notification
     n.onclick = () => {
       window.focus();
+      
+      // Navigate based on notification type
+      switch (notification.type) {
+        case 'message':
+          window.location.href = '/chats';
+          break;
+        case 'follow':
+          // Could navigate to the follower's profile if we had that data
+          window.location.href = '/dashboard';
+          break;
+        case 'announcement':
+        case 'event':
+        case 'study_reminder':
+          window.location.href = '/dashboard';
+          break;
+        default:
+          window.location.href = '/dashboard';
+      }
+      
       // Mark as read when notification is clicked
-      if (notification.id && !notification.id.startsWith('welcome-')) {
+      if (notification.id && !notification.id.startsWith('welcome-') && !notification.id.startsWith('test-')) {
         markAsRead(notification.id);
       }
       n.close();
     };
 
-    // Auto-close after 5 seconds
-    setTimeout(() => n.close(), 5000);
+    // Auto-close after different times based on type
+    const closeTime = notification.type === 'message' || notification.type === 'announcement' ? 10000 : 6000;
+    setTimeout(() => n.close(), closeTime);
   };
 
   // Manual method to trigger a test notification

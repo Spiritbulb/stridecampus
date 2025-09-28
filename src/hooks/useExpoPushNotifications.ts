@@ -2,15 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/utils/supabaseClient';
 import { toast } from '@/hooks/use-toast';
 
-// Extend Window interface for React Native WebView
-declare global {
-  interface Window {
-    ReactNativeWebView?: {
-      postMessage: (message: string) => void;
-    };
-  }
-}
-
 interface PushNotificationState {
   isSupported: boolean;
   permission: 'default' | 'granted' | 'denied';
@@ -43,13 +34,62 @@ export function useExpoPushNotifications(): UseExpoPushNotificationsReturn {
       try {
         const data = JSON.parse(event.data);
         
-        if (data.type === 'EXPO_PUSH_TOKEN') {
-          setState(prev => ({
-            ...prev,
-            expoPushToken: data.token,
-            permission: 'granted',
-            isSupported: true,
-          }));
+        switch (data.type) {
+          case 'EXPO_PUSH_TOKEN':
+            setState(prev => ({
+              ...prev,
+              expoPushToken: data.token,
+              permission: data.token ? 'granted' : prev.permission,
+              isSupported: true,
+            }));
+            break;
+            
+          case 'PERMISSION_STATUS':
+            setState(prev => {
+              const newPermission = data.permission;
+              // If permission changed from denied/default to granted, request token
+              if (prev.permission !== 'granted' && newPermission === 'granted') {
+                // Request fresh token when permission is granted
+                setTimeout(() => {
+                  if ((window as any).ReactNativeWebView) {
+                    (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+                      type: 'REQUEST_PUSH_TOKEN'
+                    }));
+                  }
+                }, 100);
+              }
+              
+              return {
+                ...prev,
+                permission: newPermission,
+                isSupported: true,
+              };
+            });
+            break;
+            
+          case 'NOTIFICATION_PERMISSION_DENIED':
+            setState(prev => ({
+              ...prev,
+              permission: 'denied',
+              isSupported: true,
+              isLoading: false,
+            }));
+            toast({
+              title: "Permission Denied",
+              description: data.message || "Push notification permission was denied",
+              variant: "destructive",
+            });
+            break;
+            
+          case 'NAVIGATE_TO_URL':
+            // Handle navigation from notifications
+            if (data.url) {
+              window.location.href = data.url;
+            }
+            break;
+            
+          default:
+            console.log('Unhandled message from native app:', data);
         }
       } catch (error) {
         console.error('Error parsing message from native app:', error);
@@ -57,12 +97,19 @@ export function useExpoPushNotifications(): UseExpoPushNotificationsReturn {
     };
 
     // For React Native WebView
-    if (typeof window !== 'undefined' && window.ReactNativeWebView) {
+    if (
+      typeof window !== 'undefined' &&
+      typeof (window as any).ReactNativeWebView !== 'undefined'
+    ) {
       window.addEventListener('message', handleMessage);
-      
-      // Request the current push token
-      window.ReactNativeWebView.postMessage(JSON.stringify({
+
+      // Request the current push token and permission status
+      (window as any).ReactNativeWebView.postMessage(JSON.stringify({
         type: 'REQUEST_PUSH_TOKEN'
+      }));
+      
+      (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'REQUEST_PERMISSION_STATUS'
       }));
     }
 
@@ -72,9 +119,23 @@ export function useExpoPushNotifications(): UseExpoPushNotificationsReturn {
       isSupported: isInExpoWebView(),
     }));
 
+    // Set up periodic permission status checks (every 5 seconds)
+    let permissionCheckInterval: number | null = null;
+    
+    if (isInExpoWebView() && (window as any).ReactNativeWebView) {
+      permissionCheckInterval = setInterval(() => {
+        (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'REQUEST_PERMISSION_STATUS'
+        }));
+      }, 5000);
+    }
+
     return () => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('message', handleMessage);
+      }
+      if (permissionCheckInterval) {
+        clearInterval(permissionCheckInterval);
       }
     };
   }, [isInExpoWebView]);
@@ -89,17 +150,34 @@ export function useExpoPushNotifications(): UseExpoPushNotificationsReturn {
 
     try {
       // Request permission from the native app
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
+      if ((window as any).ReactNativeWebView) {
+        (window as any).ReactNativeWebView.postMessage(JSON.stringify({
           type: 'REQUEST_NOTIFICATION_PERMISSION'
         }));
       }
 
-      // Wait a bit for the response
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait for the response with a longer timeout
+      let attempts = 0;
+      const maxAttempts = 30; // 3 seconds total
       
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+        
+        // Check if we got a response
+        if (state.permission === 'granted' && state.expoPushToken) {
+          setState(prev => ({ ...prev, isLoading: false }));
+          return true;
+        }
+        
+        if (state.permission === 'denied') {
+          setState(prev => ({ ...prev, isLoading: false }));
+          return false;
+        }
+      }
+      
+      // Timeout - check final state
       const hasPermission = state.permission === 'granted' && !!state.expoPushToken;
-      
       setState(prev => ({ ...prev, isLoading: false }));
       return hasPermission;
     } catch (error) {
@@ -120,7 +198,7 @@ export function useExpoPushNotifications(): UseExpoPushNotificationsReturn {
         .from('users')
         .update({ 
           expo_push_token: state.expoPushToken,
-          push_notifications_enabled: true,
+          push_notifications: true,
           updated_at: new Date().toISOString()
         })
         .eq('id', userId);
@@ -145,33 +223,25 @@ export function useExpoPushNotifications(): UseExpoPushNotificationsReturn {
     }
 
     try {
-      const message = {
-        to: state.expoPushToken,
-        sound: 'default',
-        title: 'Test Notification 🎉',
-        body: 'Push notifications are working great!',
-        data: { url: '/dashboard' },
-      };
-
-      const response = await fetch('https://exp.host/--/api/v2/push/send', {
+      const response = await fetch('/api/push-notifications', {
         method: 'POST',
         headers: {
-          Accept: 'application/json',
-          'Accept-encoding': 'gzip, deflate',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(message),
+        body: JSON.stringify({
+          type: 'test'
+        }),
       });
 
       const data = await response.json();
       
-      if (data.data && data.data[0].status === 'ok') {
+      if (data.success) {
         toast({
           title: "Test notification sent!",
           description: "You should receive a notification shortly.",
         });
       } else {
-        throw new Error(data.data?.[0]?.message || 'Failed to send notification');
+        throw new Error(data.error || 'Failed to send notification');
       }
     } catch (error) {
       console.error('Error sending test notification:', error);

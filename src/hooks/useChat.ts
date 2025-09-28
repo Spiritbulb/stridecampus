@@ -178,6 +178,44 @@ export const useChat = () => {
         })
         .eq('id', chatId);
 
+      // Send push notification to other participants
+      try {
+        // Get chat participants
+        const { data: chatData } = await supabase
+          .from('chats')
+          .select(`
+            participants:chat_participants(user_id, users(id, full_name, expo_push_token, push_notifications))
+          `)
+          .eq('id', chatId)
+          .single();
+
+        if (chatData?.participants) {
+          // Find recipients (all participants except sender)
+          const recipients = chatData.participants
+            .filter((p: any) => p.user_id !== user.id)
+            .map((p: any) => p.users);
+
+          // Send notifications to recipients
+          for (const recipient of recipients) {
+            if (recipient?.expo_push_token && recipient?.push_notifications) {
+              await fetch('/api/push-notifications', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  type: 'message',
+                  recipientId: recipient.id,
+                  senderName: user.full_name || user.username,
+                  messagePreview: message.length > 50 ? message.substring(0, 50) + '...' : message
+                })
+              });
+            }
+          }
+        }
+      } catch (notificationError) {
+        // Don't fail the message send if notification fails
+        console.error('Error sending message notification:', notificationError);
+      }
+
       // Add the new message to the messages state immediately
       if (data) {
         setMessages(prev => [...prev, data as Message]);

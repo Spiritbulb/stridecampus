@@ -7,14 +7,12 @@ import { useScrollDirection } from '@/hooks/useScrollDirection';
 import CreateModal from '@/components/create/CreateModal';
 import { Home01Icon, UserSharingIcon, PlusSignIcon, Book01Icon, PeerToPeer01FreeIcons, MeetingRoomIcon, VersusFreeIcons, VersusIcon, RankingIcon, Message01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { AIModal } from './ai';
 import { BotFreeIcons } from '@hugeicons/core-free-icons';
 
 export const Footer: React.FC = () => {
   const { user } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const createModal = useCreateModal();
   
   // Pages where the create button should be hidden
@@ -52,9 +50,9 @@ export const Footer: React.FC = () => {
     },
     {
       name: 'AI',
+      href: '/nia',
       icon: BotFreeIcons,
-      isActive: false,
-      isAction: true
+      isActive: pathname === '/nia'
     },
     {
       name: 'Library',
@@ -72,7 +70,6 @@ export const Footer: React.FC = () => {
 
   // Close all modals function
   const closeAllModals = useCallback(() => {
-    setIsAIModalOpen(false);
     createModal.closeModal();
   }, [createModal]);
 
@@ -91,25 +88,13 @@ export const Footer: React.FC = () => {
     }, 50);
   }, [closeAllModals, createModal]);
 
-  // Handle AI click
-  const handleAIClick = useCallback(() => {
-    closeAllModals();
-    // Small delay to ensure modals are closed before opening new one
-    setTimeout(() => {
-      setIsAIModalOpen(true);
-    }, 50);
-  }, [closeAllModals]);
 
   // Handle footer item click
   const handleFooterItemClick = useCallback((item: typeof navItems[0]) => {
-    if (item.name === 'AI') {
-      handleAIClick();
-    } else if (item.isAction) {
-      handleCreateClick();
-    } else if (item.href) {
+    if (item.href) {
       handleNavigation(item.href);
     }
-  }, [handleAIClick, handleCreateClick, handleNavigation]);
+  }, [handleNavigation]);
 
   // Handle post created
   const handlePostCreated = useCallback(() => {
@@ -121,10 +106,6 @@ export const Footer: React.FC = () => {
     console.log('Space created:', space);
   }, []);
 
-  // Handle modal close
-  const handleAIModalClose = useCallback(() => {
-    setIsAIModalOpen(false);
-  }, []);
 
   const handleCreateModalClose = useCallback(() => {
     createModal.closeModal();
@@ -187,12 +168,6 @@ export const Footer: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* AI Modal */}
-      <AIModal 
-        isOpen={isAIModalOpen} 
-        onClose={handleAIModalClose} 
-      />
 
       {/* Create Modal */}
       <CreateModal

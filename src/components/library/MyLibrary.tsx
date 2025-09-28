@@ -1,12 +1,12 @@
 'use client';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from '@/hooks/use-toast';
 import { getUserFiles } from '@/utils/r2';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { LibraryHeader } from '@/components/library/LibraryHeader';
 import { SearchFilters } from '@/components/library/SearchFilters';
 import { ResourcesGrid } from '@/components/library/ResourcesGrid';
-import { UploadModal } from '@/components/library/UploadModal';
 import { LibraryFile } from '@/components/library/types';
 import { User } from '@/utils/supabaseClient';
 import { BookOpen, Upload, TrendingUp } from 'lucide-react';
@@ -33,13 +33,13 @@ const useDebounce = (value: string, delay: number) => {
 };
 
 export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
+  const router = useRouter();
   const [files, setFiles] = useState<LibraryFile[]>([]);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [selectedResourceType, setSelectedResourceType] = useState('all');
-  const [showUploadModal, setShowUploadModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [libraryStats, setLibraryStats] = useState({
     totalFiles: 0,
@@ -226,14 +226,9 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
     });
   }, [fetchUserFiles, pagination.page]);
 
-  const handleUploadSuccess = useCallback(() => {
-    setShowUploadModal(false);
-    fetchUserFiles(1, true);
-    toast({
-      title: 'Success',
-      description: 'Resource uploaded successfully to your library',
-    });
-  }, [fetchUserFiles]);
+  const handleUploadClick = useCallback(() => {
+    router.push('/library/upload');
+  }, [router]);
 
   useEffect(() => {
     return () => {
@@ -275,7 +270,7 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
         <div className="max-w-7xl sm:px-3 lg:px-5 py-8 content-max-width">
           <LibraryHeader 
             user={user} 
-            onUploadClick={() => setShowUploadModal(true)}
+            onUploadClick={handleUploadClick}
             owner={true}
           />
           
@@ -313,7 +308,7 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
             {!hasActiveFilters && (
               <div className="space-y-3">
                 <button
-                  onClick={() => setShowUploadModal(true)}
+                  onClick={handleUploadClick}
                   className="inline-flex items-center gap-2 bg-[#f23b36] hover:bg-[#e12b26] text-white px-6 py-3 rounded-lg font-medium transition-colors btn-hover"
                 >
                   <Upload size={20} />
@@ -326,13 +321,6 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
             )}
           </div>
 
-          {showUploadModal && (
-            <UploadModal
-              user={user}
-              onClose={() => setShowUploadModal(false)}
-              onUploadSuccess={handleUploadSuccess}
-            />
-          )}
         </div>
       </div>
     );
@@ -346,7 +334,7 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
       <div className="mx-auto sm:px-6 lg:px-8 py-8 content-max-width">
         <LibraryHeader 
           user={user} 
-          onUploadClick={() => setShowUploadModal(true)} 
+          onUploadClick={handleUploadClick} 
           owner={true}
         />
         
@@ -440,13 +428,6 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
           showOwner={false} // Don't show owner in personal library (it's always you)
         />
 
-        {showUploadModal && (
-          <UploadModal
-            user={user}
-            onClose={() => setShowUploadModal(false)}
-            onUploadSuccess={handleUploadSuccess}
-          />
-        )}
       </div>
     </div>
   );

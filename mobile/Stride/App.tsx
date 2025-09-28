@@ -68,12 +68,45 @@ export default function App() {
     let token;
 
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FF231F7C',
-      });
+      // Create notification channels for different types of notifications
+      await Promise.all([
+        Notifications.setNotificationChannelAsync('default', {
+          name: 'Default',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#f23b36',
+          sound: 'notification_sound.wav',
+        }),
+        Notifications.setNotificationChannelAsync('messages', {
+          name: 'Messages',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#f23b36',
+          sound: 'notification_sound.wav',
+          description: 'Direct messages and chat notifications',
+        }),
+        Notifications.setNotificationChannelAsync('social', {
+          name: 'Social',
+          importance: Notifications.AndroidImportance.DEFAULT,
+          vibrationPattern: [0, 250],
+          lightColor: '#f23b36',
+          description: 'Likes, comments, and social interactions',
+        }),
+        Notifications.setNotificationChannelAsync('events', {
+          name: 'Events',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250, 250, 250],
+          lightColor: '#f23b36',
+          description: 'Campus events and announcements',
+        }),
+        Notifications.setNotificationChannelAsync('academic', {
+          name: 'Academic',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 500],
+          lightColor: '#f23b36',
+          description: 'Study reminders and academic notifications',
+        }),
+      ]);
     }
 
     if (Device.isDevice) {
@@ -126,20 +159,62 @@ export default function App() {
               type: 'EXPO_PUSH_TOKEN',
               token: expoPushToken
             }));
+          } else {
+            // No token available, send empty response
+            webViewRef.current?.postMessage(JSON.stringify({
+              type: 'EXPO_PUSH_TOKEN',
+              token: null
+            }));
           }
+          break;
+
+        case 'REQUEST_PERMISSION_STATUS':
+          // WebView is requesting permission status
+          Notifications.getPermissionsAsync().then(({ status }) => {
+            if (webViewRef.current) {
+              webViewRef.current.postMessage(JSON.stringify({
+                type: 'PERMISSION_STATUS',
+                permission: status === 'granted' ? 'granted' : status === 'denied' ? 'denied' : 'default'
+              }));
+            }
+          });
           break;
           
         case 'REQUEST_NOTIFICATION_PERMISSION':
           // WebView is requesting to check/request notification permission
           registerForPushNotificationsAsync().then(token => {
-            if (token && webViewRef.current) {
-              setExpoPushToken(token);
-              webViewRef.current.postMessage(JSON.stringify({
-                type: 'EXPO_PUSH_TOKEN',
-                token: token
-              }));
+            if (webViewRef.current) {
+              if (token) {
+                setExpoPushToken(token);
+                webViewRef.current.postMessage(JSON.stringify({
+                  type: 'EXPO_PUSH_TOKEN',
+                  token: token
+                }));
+              } else {
+                // Permission denied or failed
+                webViewRef.current.postMessage(JSON.stringify({
+                  type: 'NOTIFICATION_PERMISSION_DENIED',
+                  message: 'Permission denied or failed to get token'
+                }));
+              }
             }
           });
+          break;
+
+        case 'NAVIGATE_TO_URL':
+          // Handle navigation requests from the WebView
+          if (data.url && webViewRef.current) {
+            const baseUrl = 'https://app.stridecampus.com';
+            const fullUrl = data.url.startsWith('http') ? data.url : `${baseUrl}${data.url}`;
+            webViewRef.current.stopLoading();
+            webViewRef.current.reload();
+            setTimeout(() => {
+              webViewRef.current?.injectJavaScript(`
+                window.location.href = '${fullUrl}';
+                true;
+              `);
+            }, 100);
+          }
           break;
           
         default:

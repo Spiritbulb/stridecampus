@@ -156,8 +156,27 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
     const { error } = await supabase.from('notifications').insert(notification);
     if (error) {
       console.error('Error notifying user:', error);
+      return;
     }
-  }, [isAuthenticated]);
+
+    // Send push notification as well
+    try {
+      if (notification.type === 'follow' && currentUser) {
+        await fetch('/api/push-notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'follower',
+            followedUserId: notification.recipient_id,
+            followerName: currentUser.full_name || currentUser.username
+          })
+        });
+      }
+    } catch (pushError) {
+      // Don't fail the notification if push notification fails
+      console.error('Error sending push notification:', pushError);
+    }
+  }, [isAuthenticated, currentUser]);
 
   const handlePinToggle = useCallback(async () => {
     if (!currentUser || !profileData || !pinnedPost || !isAuthenticated) return;

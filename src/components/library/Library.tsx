@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from '@/hooks/use-toast';
 import { getFiles } from '@/utils/r2';
@@ -7,7 +8,6 @@ import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { LibraryHeader } from '@/components/library/LibraryHeader';
 import { SearchFilters } from '@/components/library/SearchFilters';
 import { ResourcesGrid } from '@/components/library/ResourcesGrid';
-import { UploadModal } from '@/components/library/UploadModal';
 import { LibraryFile } from '@/components/library/types';
 
 
@@ -29,6 +29,7 @@ const useDebounce = (value: string, delay: number) => {
 };
 
 export default function Library() {
+  const router = useRouter();
   const { 
     isLoading: appIsLoading, 
     handleNavigateToAuth, 
@@ -40,7 +41,6 @@ export default function Library() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [selectedResourceType, setSelectedResourceType] = useState('all');
-  const [showUploadModal, setShowUploadModal] = useState(false);
   const [isFileLoading, setIsFileLoading] = useState(true);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -168,14 +168,9 @@ export default function Library() {
     fetchFiles(pagination.page, false);
   }, [fetchFiles, pagination.page]);
 
-  const handleUploadSuccess = useCallback(() => {
-    setShowUploadModal(false);
-    fetchFiles(1, true);
-    toast({
-      title: 'Success',
-      description: 'Resource uploaded successfully and added to the library',
-    });
-  }, [fetchFiles]);
+  const handleUploadClick = useCallback(() => {
+    router.push('/library/upload');
+  }, [router]);
 
   useEffect(() => {
     return () => {
@@ -206,7 +201,7 @@ export default function Library() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <LibraryHeader 
           user={user} 
-          onUploadClick={() => setShowUploadModal(true)} 
+          onUploadClick={handleUploadClick} 
           owner={false}
         />
         
@@ -241,14 +236,6 @@ export default function Library() {
           onPageChange={handlePageChange}
           showOwner={true}
         />
-
-        {showUploadModal && (
-          <UploadModal
-            user={user}
-            onClose={() => setShowUploadModal(false)}
-            onUploadSuccess={handleUploadSuccess}
-          />
-        )}
       </div>
     </div>
   );
