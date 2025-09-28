@@ -57,13 +57,8 @@ export default function NoAuthFooter() {
                 </Link>
               </li>
               <li>
-                <Link href="/privacy" className="text-gray-400 hover:text-[#f23b36] transition-colors">
-                  Privacy Policy
-                </Link>
-              </li>
-              <li>
-                <Link href="/terms" className="text-gray-400 hover:text-[#f23b36] transition-colors">
-                  Terms of Service
+                <Link href="/legal" className="text-gray-400 hover:text-[#f23b36] transition-colors">
+                  Legal Documents
                 </Link>
               </li>
             </ul>

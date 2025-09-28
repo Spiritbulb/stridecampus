@@ -40,10 +40,10 @@ export default function DesktopFooter () {
                 About
               </a>
               <a 
-                href="/privacy" 
+                href="/legal" 
                 className="text-black/80 hover:text-black-800 dark:text-black-800 dark:hover:text-black-200 transition-colors duration-300 relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-px after:bg-current after:transition-all after:duration-300 hover:after:w-full"
               >
-                Privacy
+                Legal
               </a>
               <a 
                 href="/support" 
