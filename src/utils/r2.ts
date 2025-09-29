@@ -2,7 +2,7 @@ import { supabase } from './supabaseClient';
 import { createTransactionWithCreditsUpdate } from '@/hooks/useTransactions';
 
 // Configuration - update with your R2 API worker URL
-const R2_API_URL = 'https://stride-media-api.spiritbulb.workers.dev';
+const R2_API_URL = 'https://api.stridecampus.com';
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks for large files
 
 // Supported link types

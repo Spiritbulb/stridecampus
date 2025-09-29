@@ -356,7 +356,7 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
     }));
 
     try {
-      const response = await fetch('https://stride-media-api.spiritbulb.workers.dev/upload', {
+      const response = await fetch('https://api.stridecampus.com/upload', {
         method: 'POST',
         body: formData,
       });

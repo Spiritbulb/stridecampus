@@ -8,7 +8,7 @@ export const CREDIT_CONFIG = {
     UPVOTE_RECEIVED: 1,            // Per upvote received on posts
     FOLLOWER_MILESTONE: 10,        // Every 100 new followers
     FOLLOWER_MILESTONE_THRESHOLD: 100,
-    NIA_CHAT_BONUS_MAX: 20,        // Max random bonus from Nia per session
+    NIA_CHAT_BONUS_MAX: 10,        // Max random bonus from Nia per session (reduced from 20)
     DAILY_LOGIN: 5,                // Daily login streak bonus
     WELCOME_BONUS: 120,            // New user welcome bonus
   },
@@ -434,13 +434,13 @@ export async function getUserCreditSummary(userId: string): Promise<{
  * Generate random Nia chat bonus amount
  */
 export function generateNiaChatBonus(): number {
-  // Random bonus between 1-20 credits, weighted towards lower amounts
-  const weights = [0.4, 0.3, 0.2, 0.1]; // 40% chance for 1-5, 30% for 6-10, etc.
+  // Random bonus between 1-10 credits, weighted towards lower amounts (reduced from 1-20)
+  const weights = [0.5, 0.3, 0.15, 0.05]; // 50% chance for 1-3, 30% for 4-6, etc.
   const ranges = [
-    { min: 1, max: 5 },
-    { min: 6, max: 10 },
-    { min: 11, max: 15 },
-    { min: 16, max: 20 }
+    { min: 1, max: 3 },
+    { min: 4, max: 6 },
+    { min: 7, max: 8 },
+    { min: 9, max: 10 }
   ];
   
   const random = Math.random();

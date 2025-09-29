@@ -17,7 +17,7 @@ const MessageList: React.FC<MessageListProps> = memo(({
 
   if (messages.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-500 bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className="flex-1 flex items-center justify-center text-gray-500 bg-white">
         <div className="text-center max-w-md mx-auto px-6">
           <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-[#f23b36] to-[#d63031] rounded-full flex items-center justify-center shadow-lg">
             <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -32,30 +32,29 @@ const MessageList: React.FC<MessageListProps> = memo(({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gradient-to-br from-gray-50 via-white to-gray-50">
+    <div className="flex-1 overflow-y-auto bg-white">
       {messages.map((message) => (
-        <div
-          key={message.id}
-          className={`flex ${
-            message.sender_id === currentUserId ? 'justify-end' : 'justify-start'
-          }`}
-        >
-          <div
-            className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-sm ${
-              message.sender_id === currentUserId
-                ? 'bg-gradient-to-br from-[#f23b36] to-[#d63031] text-white rounded-br-md'
-                : 'bg-white text-gray-900 rounded-bl-md border border-gray-200 shadow-md'
-            }`}
-          >
-            <p className="text-sm leading-relaxed font-medium">{message.message}</p>
-            <span className={`text-xs mt-2 block ${
-              message.sender_id === currentUserId ? 'text-red-100' : 'text-gray-500'
-            }`}>
-              {new Date(message.created_at).toLocaleTimeString([], { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-              })}
-            </span>
+        <div key={message.id} className="py-4 px-6">
+          <div className="max-w-4xl mx-auto">
+            <div className={`flex ${message.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-2xl px-4 py-3 rounded-2xl transition-all duration-200 ${
+                message.sender_id === currentUserId 
+                  ? 'bg-gradient-to-r from-[#f23b36] to-[#e53e3e] text-white' 
+                  : 'bg-white border border-gray-200 shadow-sm'
+              }`}>
+                <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                  {message.message}
+                </div>
+                <div className={`text-xs mt-2 ${
+                  message.sender_id === currentUserId ? 'text-red-100' : 'text-gray-500'
+                }`}>
+                  {new Date(message.created_at).toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       ))}

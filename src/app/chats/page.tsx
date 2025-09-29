@@ -205,7 +205,7 @@ const ChatPageContent: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50" role="main" aria-label="Chat application">
+    <div className="flex h-[90vh] bg-gray-50" role="main" aria-label="Chat application">
       {/* Error Display */}
       {ErrorDisplay}
       
@@ -236,7 +236,7 @@ const ChatPageContent: React.FC = () => {
           )}
           
           {/* Chat Messages Area */}
-          <div className="flex-1 flex flex-col bg-white" role="region" aria-label="Chat messages">
+          <div className="flex-1 flex flex-col bg-white overflow-hidden" role="region" aria-label="Chat messages">
             {!activeChat ? (
               <div className="flex-1 flex items-center justify-center text-gray-500 bg-gray-50/50">
                 <div className="text-center">
@@ -253,26 +253,32 @@ const ChatPageContent: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <>
+              <div className="flex flex-col h-full bg-white overflow-hidden">
                 <ChatHeader
                   otherParticipant={otherParticipant}
                   onBackToChats={handleBackToChats}
                   onViewProfile={handleViewProfile}
                   isMobile={false}
                 />
-                <MessageList
-                  messages={messages}
-                  currentUserId={user.id}
-                  loading={loading}
-                  messagesEndRef={messagesEndRef}
-                />
+                
+                {/* Messages Area - Scrollable middle section */}
+                <div className="flex-1 overflow-hidden pb-20 mb-28 md:pb-32">
+                  <MessageList
+                    messages={messages}
+                    currentUserId={user.id}
+                    loading={loading}
+                    messagesEndRef={messagesEndRef}
+                  />
+                </div>
+
+                {/* Input Area - Fixed above mobile footer */}
                 <MessageInput
                   newMessage={newMessage}
                   onMessageChange={setNewMessage}
                   onSendMessage={handleSendMessage}
                   disabled={loading}
                 />
-              </>
+              </div>
             )}
           </div>
         </>
@@ -305,19 +311,25 @@ const ChatPageContent: React.FC = () => {
             />
           )}
           {!showChatList && !showUserSearch && activeChat && (
-            <div className="fixed inset-0 z-50 flex flex-col bg-white pb-20">
+            <div className="fixed inset-0 z-50 flex flex-col bg-white overflow-hidden">
               <ChatHeader
                 otherParticipant={otherParticipant}
                 onBackToChats={handleBackToChats}
                 onViewProfile={handleViewProfile}
                 isMobile={true}
               />
-              <MessageList
-                messages={messages}
-                currentUserId={user.id}
-                loading={loading}
-                messagesEndRef={messagesEndRef}
-              />
+              
+              {/* Messages Area - Scrollable middle section */}
+              <div className="flex-1 overflow-hidden pb-20 mb-28 md:pb-32">
+                <MessageList
+                  messages={messages}
+                  currentUserId={user.id}
+                  loading={loading}
+                  messagesEndRef={messagesEndRef}
+                />
+              </div>
+
+              {/* Input Area - Fixed above mobile footer */}
               <MessageInput
                 newMessage={newMessage}
                 onMessageChange={setNewMessage}

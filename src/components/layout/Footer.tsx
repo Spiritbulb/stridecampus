@@ -16,7 +16,7 @@ export const Footer: React.FC = () => {
   const createModal = useCreateModal();
   
   // Pages where the create button should be hidden
-  const hiddenPages = ['/library', '/chats'];
+  const hiddenPages = ['/library', '/chats', '/nia'];
   
   // Use scroll direction hook
   const { isVisible: isScrollVisible } = useScrollDirection({ 

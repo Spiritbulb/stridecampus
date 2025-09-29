@@ -1,0 +1,66 @@
+{
+  "sessions": {
+    "session_1759153843690_90eolg4i8": {
+      "id": "session_1759153843690_90eolg4i8",
+      "title": "hey",
+      "messages": [
+        {
+          "content": "hey",
+          "isUser": true,
+          "id": "1759153844178_3888xbxjo",
+          "timestamp": "2025-09-29T13:50:44.178Z"
+        },
+        {
+          "content": "Hey! How's it going?",
+          "isUser": false,
+          "id": "1759153844179_pk9hqm2x1",
+          "timestamp": "2025-09-29T13:50:44.179Z"
+        },
+        {
+          "content": "wah",
+          "isUser": true,
+          "id": "1759153856453_qy9bcx162",
+          "timestamp": "2025-09-29T13:50:56.453Z"
+        },
+        {
+          "content": "Hey, what's up? Glad you're here.",
+          "isUser": false,
+          "id": "1759153856454_m3s82bgg5",
+          "timestamp": "2025-09-29T13:50:56.454Z"
+        },
+        {
+          "content": "yo",
+          "isUser": true,
+          "id": "1759153918109_i4eutw9n1",
+          "timestamp": "2025-09-29T13:51:58.109Z"
+        },
+        {
+          "content": "Hey, long time no chat! What's on your mind?",
+          "isUser": false,
+          "id": "1759153918111_xxudk775h",
+          "timestamp": "2025-09-29T13:51:58.111Z"
+        },
+        {
+          "content": "hey bro",
+          "isUser": true,
+          "id": "1759154181433_eivuvyoda",
+          "timestamp": "2025-09-29T13:56:21.433Z"
+        },
+        {
+          "content": "Hey, what's up bro?",
+          "isUser": false,
+          "id": "1759154181434_rlnzhv75d",
+          "timestamp": "2025-09-29T13:56:21.434Z"
+        }
+      ],
+      "createdAt": "2025-09-29T13:50:43.690Z",
+      "updatedAt": "2025-09-29T13:56:24.765Z",
+      "isActive": true,
+      "messageCount": 8
+    }
+  },
+  "activeSessionId": "session_1759153843690_90eolg4i8",
+  "lastSyncTime": "2025-09-29T13:56:24.765Z",
+  "version": "1.0.0",
+  "userId": "f5d64dc3-a684-4347-8a9c-e851fadd6ff1"
+}

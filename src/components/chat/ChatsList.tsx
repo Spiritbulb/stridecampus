@@ -32,26 +32,6 @@ const generateConsistentNickname = (userId: string): string => {
   return `${adjectives[adjIndex]}${nouns[nounIndex]}${number}`;
 };
 
-// Virtual scrolling hook for performance
-const useVirtualScroll = (items: any[], itemHeight: number, containerHeight: number) => {
-  const [scrollTop, setScrollTop] = useState(0);
-  
-  const visibleItems = useMemo(() => {
-    const startIndex = Math.floor(scrollTop / itemHeight);
-    const endIndex = Math.min(
-      startIndex + Math.ceil(containerHeight / itemHeight) + 1,
-      items.length
-    );
-    
-    return {
-      startIndex: Math.max(0, startIndex),
-      endIndex,
-      visibleItems: items.slice(Math.max(0, startIndex), endIndex)
-    };
-  }, [items, scrollTop, itemHeight, containerHeight]);
-
-  return { visibleItems, setScrollTop };
-};
 
 // Memoized chat item component
 const ChatItem = memo<{
@@ -108,11 +88,7 @@ const ChatItem = memo<{
   return (
     <div
       style={style}
-      className={`group relative px-4 py-3 cursor-pointer transition-all duration-200 border-l-2 ${
-        isActive 
-          ? 'bg-gradient-to-r from-blue-50 to-indigo-50/50 border-l-blue-500 shadow-sm' 
-          : 'border-l-transparent hover:bg-gray-50 hover:border-l-gray-200'
-      }`}
+      className="group px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-100"
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       tabIndex={0}
@@ -120,56 +96,21 @@ const ChatItem = memo<{
       aria-label={`Chat with ${finalDisplayName}`}
       aria-selected={isActive}
     >
-      {/* Subtle active indicator */}
-      {isActive && (
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-500 rounded-full opacity-60" />
-      )}
-      
-      <div className="flex items-center gap-3">
-        {/* Avatar with online status */}
-        <div className="relative flex-shrink-0">
-          <img
-            src={chatOtherParticipant.users.avatar_url || '/default-avatar.png'}
-            alt={finalDisplayName}
-            className="w-12 h-12 rounded-full object-cover ring-2 ring-gray-100 group-hover:ring-gray-200 transition-all"
-            loading="lazy"
-          />
-          {/* Online indicator - you can connect this to real online status */}
-          <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 border-2 border-white rounded-full" />
-        </div>
-
-        {/* Chat content */}
+      <div className="flex items-center justify-between">
         <div className="flex-1 min-w-0">
-          <div className="flex justify-between items-baseline mb-0.5">
-            <div className="flex items-center gap-1.5">
-              <h3 className="font-medium text-gray-900 truncate">
-                {finalDisplayName}
-              </h3>
-              {/* Verified checkmark - you can connect this to real verification status */}
-              {chatOtherParticipant.users.checkmark && (
-                <img 
-                  src="/check.png" 
-                  alt="Verified" 
-                  className="w-3.5 h-3.5 flex-shrink-0" 
-                />
-              )}
-              {/* Username handle */}
-              {chatOtherParticipant.users.username && !isCurrentUser && (
-                <span className="text-xs text-gray-500 truncate">
-                  @{chatOtherParticipant.users.username}
-                </span>
-              )}
-            </div>
-            <time className="text-xs text-gray-500 flex-shrink-0 ml-2 font-mono">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="text-base font-medium text-gray-900 truncate pr-2">
+              {finalDisplayName}
+            </h3>
+            <span className="text-xs text-gray-500 flex-shrink-0">
               {chat.last_message_at ? formatTime(chat.last_message_at) : ''}
-            </time>
+            </span>
           </div>
           
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-600 truncate flex-1">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500 truncate pr-2">
               {chat.last_message || 'Start a conversation...'}
             </p>
-            
             {/* Unread count - you can connect this to real unread state */}
             {chat.unread_count > 0 && (
               <span className="ml-2 px-2 py-0.5 text-xs bg-blue-500 text-white rounded-full min-w-[20px] text-center">
@@ -185,44 +126,30 @@ const ChatItem = memo<{
 
 ChatItem.displayName = 'ChatItem';
 
-// Enhanced search/filter component
+// Enhanced search/filter component matching ChatListView design
 const ChatSearch = memo<{
   searchQuery: string;
   onSearchChange: (query: string) => void;
   totalChats: number;
   filteredChats: number;
 }>(({ searchQuery, onSearchChange, totalChats, filteredChats }) => {
-  const [isFocused, setIsFocused] = useState(false);
-
   return (
-    <div className="relative px-4 pb-3">
-      <div className={`relative transition-all duration-200 ${
-        isFocused ? 'transform scale-[1.02]' : ''
-      }`}>
-        <input
-          type="text"
-          placeholder="Search conversations..."
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border-0 rounded-xl text-sm placeholder-gray-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:shadow-sm transition-all"
-        />
-        <svg 
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-      </div>
-      
-      {searchQuery && (
-        <p className="text-xs text-gray-500 mt-2 px-1">
-          {filteredChats} of {totalChats} conversations
-        </p>
-      )}
+    <div className="relative">
+      <svg 
+        className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+        fill="none" 
+        stroke="currentColor" 
+        viewBox="0 0 24 24"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      <input
+        type="text"
+        placeholder="Search"
+        value={searchQuery}
+        onChange={(e) => onSearchChange(e.target.value)}
+        className="w-full pl-11 pr-4 py-2.5 bg-gray-100 rounded-full text-sm focus:outline-none focus:bg-gray-200 transition-colors"
+      />
     </div>
   );
 });
@@ -241,8 +168,6 @@ const ChatsList: React.FC<ChatsListProps> = memo(({
   isMobile = false
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [containerHeight, setContainerHeight] = useState(600);
 
   // Filter chats based on search
   const filteredChats = useMemo(() => {
@@ -261,31 +186,6 @@ const ChatsList: React.FC<ChatsListProps> = memo(({
     });
   }, [chats, searchQuery, currentUserId]);
 
-  // Virtual scrolling for performance
-  const ITEM_HEIGHT = 72; // Height of each chat item
-  const { visibleItems, setScrollTop } = useVirtualScroll(
-    filteredChats, 
-    ITEM_HEIGHT, 
-    containerHeight
-  );
-
-  // Handle scroll for virtual scrolling
-  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    setScrollTop(e.currentTarget.scrollTop);
-  }, [setScrollTop]);
-
-  // Update container height on resize
-  useEffect(() => {
-    const updateHeight = () => {
-      if (scrollContainerRef.current) {
-        setContainerHeight(scrollContainerRef.current.clientHeight);
-      }
-    };
-
-    updateHeight();
-    window.addEventListener('resize', updateHeight);
-    return () => window.removeEventListener('resize', updateHeight);
-  }, []);
 
   // Loading skeleton
   const LoadingSkeleton = () => (
@@ -305,32 +205,25 @@ const ChatsList: React.FC<ChatsListProps> = memo(({
       isMobile 
         ? 'fixed inset-0 z-50 bg-white' 
         : 'w-80 border-r border-gray-200/60'
-    } flex flex-col bg-white/95 backdrop-blur-sm`}>
+    } flex flex-col bg-white`}>
       
       {/* Header */}
-      <div className="px-4 pt-6 pb-3 border-b border-gray-100 bg-white/80 backdrop-blur sticky top-0 z-10">
+      <div className="px-6 py-4">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-            Chats
-            {filteredChats.length > 0 && (
-              <span className="text-sm font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                {filteredChats.length}
-              </span>
-            )}
-          </h1>
-          
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">Chats</h1>
+          </div>
           <button
             onClick={onStartNewChat}
-            className="w-10 h-10 bg-[#f23b36] hover:bg-[#f23b36]/70 text-white rounded-xl transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow-md hover:scale-105 active:scale-95"
-            title="Start new chat"
-            aria-label="Start new chat"
+            className="w-10 h-10 rounded-full bg-gray-900 hover:bg-gray-800 flex items-center justify-center transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
           </button>
         </div>
 
+        {/* Search */}
         <ChatSearch
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
@@ -340,11 +233,7 @@ const ChatsList: React.FC<ChatsListProps> = memo(({
       </div>
 
       {/* Chat list */}
-      <div 
-        ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto scroll-smooth"
-        onScroll={handleScroll}
-      >
+      <div className="flex-1 overflow-y-auto">
         {loading && !isInitialized ? (
           <div className="space-y-1">
             {[...Array(8)].map((_, i) => (
@@ -352,58 +241,42 @@ const ChatsList: React.FC<ChatsListProps> = memo(({
             ))}
           </div>
         ) : filteredChats.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full px-8 text-center">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-            </div>
-            
+          <div className="flex flex-col items-center justify-center h-full px-6 pb-20">
             {searchQuery ? (
-              <>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No matches found</h3>
-                <p className="text-gray-500 mb-4">
-                  Try adjusting your search or start a new conversation
-                </p>
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="text-[#f23b36] hover:text-[#f23b36]/70 font-medium transition-colors"
-                >
-                  Clear search
-                </button>
-              </>
+              <div className="text-center">
+                <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <h3 className="text-lg font-medium text-gray-900 mb-1">No chats found</h3>
+                <p className="text-gray-500 text-sm">Try a different search term</p>
+              </div>
             ) : (
-              <>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No conversations yet</h3>
-                <p className="text-gray-500 mb-6">
-                  Start your first conversation to get started
-                </p>
-                <button
+              <div className="text-center">
+                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                  <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-1">No conversations yet</h3>
+                <p className="text-gray-500 text-sm mb-6">Start chatting with friends</p>
+                <button 
                   onClick={onStartNewChat}
-                  className="px-6 py-2.5 bg-[#f23b36] hover:bg-[#f23b36]/70 text-white rounded-xl transition-all duration-200 font-medium shadow-sm hover:shadow-md"
+                  className="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-full transition-colors"
                 >
-                  Start chatting
+                  Start Chatting
                 </button>
-              </>
+              </div>
             )}
           </div>
         ) : (
-          // Virtual scrolling container
-          <div style={{ height: filteredChats.length * ITEM_HEIGHT, position: 'relative' }}>
-            {visibleItems.visibleItems.map((chat, index) => (
+          <div>
+            {filteredChats.map((chat) => (
               <ChatItem
                 key={chat.id}
                 chat={chat}
                 currentUserId={currentUserId}
                 isActive={activeChat?.id === chat.id}
                 onSelectChat={onSelectChat}
-                style={{
-                  position: 'absolute',
-                  top: (visibleItems.startIndex + index) * ITEM_HEIGHT,
-                  left: 0,
-                  right: 0,
-                  height: ITEM_HEIGHT,
-                }}
               />
             ))}
           </div>

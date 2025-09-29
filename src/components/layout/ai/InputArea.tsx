@@ -10,10 +10,9 @@ interface InputAreaProps {
   onChange: (value: string) => void;
   onSend: (message: string) => void;
   isLoading: boolean;
-  messagesEndRef: any;
 }
 
-export const InputArea = ({ value, onChange, onSend, isLoading, messagesEndRef }: InputAreaProps) => {
+export const InputArea = ({ value, onChange, onSend, isLoading }: InputAreaProps) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { user } = useApp();
   const [hasEnoughCredits, setHasEnoughCredits] = useState(true);
@@ -57,59 +56,85 @@ export const InputArea = ({ value, onChange, onSend, isLoading, messagesEndRef }
   };
 
   return (
-    <div className="border-t border-gray-200 bg-white p-4">
+    <div className="p-4 pb-6">
       <div className="max-w-4xl mx-auto">
         <div className="max-w-3xl mx-auto">
-          <div className="flex items-end space-x-4">
-            <div className="flex-1 relative">
-              <textarea
-                ref={textareaRef}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                onKeyPress={handleKeyPress}
-                onInput={handleInput}
-                placeholder="Ask anything"
-                disabled={isLoading}
-                maxLength={500}
-                rows={1}
-                className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-transparent disabled:bg-gray-50 disabled:cursor-not-allowed resize-none placeholder-gray-500"
-                style={{
-                  minHeight: '48px',
-                  maxHeight: '120px',
-                }}
-              />
+          <div className="relative">
+            {/* Main input container with subtle background */}
+            <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-100/50 overflow-hidden">
+              <div className="flex items-end p-4 space-x-3">
+                {/* Text area */}
+                <div className="flex-1">
+                  <textarea
+                    ref={textareaRef}
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    onInput={handleInput}
+                    placeholder="Ask Nia anything..."
+                    disabled={isLoading}
+                    maxLength={500}
+                    rows={1}
+                    className="w-full bg-transparent text-gray-800 placeholder-gray-400 text-base resize-none focus:outline-none focus:ring-0 focus:border-transparent disabled:cursor-not-allowed leading-relaxed"
+                    style={{
+                      minHeight: '60px',
+                      maxHeight: '200px',
+                    }}
+                  />
+                </div>
+                
+                {/* Send button */}
+                <CostBubbleWrapper cost={NIA_MESSAGE_COST} position="top-right" size="sm">
+                  <button 
+                    onClick={handleSend}
+                    disabled={!value.trim() || isLoading || !hasEnoughCredits}
+                    className={`
+                      relative group transition-all duration-200 ease-out transform
+                      ${!value.trim() || isLoading || !hasEnoughCredits
+                        ? 'opacity-50 cursor-not-allowed scale-95' 
+                        : 'hover:scale-105 active:scale-95'
+                      }
+                    `}
+                    title={
+                      !hasEnoughCredits 
+                        ? `Insufficient credits. You need ${NIA_MESSAGE_COST} credits to send a message.`
+                        : "Send message"
+                    }
+                  >
+                    {/* Button background with gradient */}
+                    <div className={`
+                      w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-200
+                      ${hasEnoughCredits 
+                        ? 'bg-gradient-to-br from-[#f23b36] to-[#e0342e] shadow-lg shadow-[#f23b36]/25 hover:shadow-[#f23b36]/40' 
+                        : 'bg-gradient-to-br from-red-400 to-red-500 shadow-lg shadow-red-400/25'
+                      }
+                    `}>
+                      {isLoading ? (
+                        <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <Send className="h-5 w-5 text-white transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                      )}
+                    </div>
+                    
+                    {/* Subtle glow effect */}
+                    {hasEnoughCredits && !isLoading && value.trim() && (
+                      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-[#f23b36] to-[#e0342e] opacity-0 group-hover:opacity-20 transition-opacity duration-200 blur-sm -z-10"></div>
+                    )}
+                  </button>
+                </CostBubbleWrapper>
+              </div>
+              
+              {/* Character count */}
+              <div className="absolute bottom-2 right-16 text-xs text-gray-400 bg-white/80 px-2 py-1 rounded-full backdrop-blur-sm">
+                {value.length}/500
+              </div>
             </div>
-            <CostBubbleWrapper cost={NIA_MESSAGE_COST} position="top-right" size="sm">
-              <button 
-                onClick={handleSend}
-                disabled={!value.trim() || isLoading || !hasEnoughCredits}
-                className={`mb-1 text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors disabled:cursor-not-allowed ${
-                  hasEnoughCredits 
-                    ? 'bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300' 
-                    : 'bg-red-500 hover:bg-red-600 disabled:bg-red-300'
-                }`}
-                title={
-                  !hasEnoughCredits 
-                    ? `Insufficient credits. You need ${NIA_MESSAGE_COST} credits to send a message.`
-                    : "Send message"
-                }
-              >
-                {isLoading ? (
-                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <Send className="h-7 w-7" />
-                )}
-              </button>
-            </CostBubbleWrapper>
-          </div>
-          <div className="flex items-end justify-end mt-2 px-1">
-            <p className="text-xs text-gray-400">
-              {value.length}/500
-            </p>
+            
+            {/* Subtle accent line */}
+            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-16 h-0.5 bg-gradient-to-r from-transparent via-[#f23b36] to-transparent rounded-full"></div>
           </div>
         </div>
       </div>
-      <div ref={messagesEndRef} />
     </div>
   );
 };

@@ -1,74 +1,73 @@
 import { Message } from './types';
 import { MessageBubble } from './MessageBubble';
 import { TypingIndicator } from './TypingIndicator';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface MessageListProps {
   messages: Message[];
   isLoading: boolean;
 }
 
-const CHAT_STORAGE_KEY = 'chatMessages';
-const MAX_INTERACTIONS = 20;
-
 export const MessageList = ({ messages, isLoading }: MessageListProps) => {
-  const [localMessages, setLocalMessages] = useState<Message[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Load messages from localStorage on component mount
+  // Auto-scroll to bottom when messages change or when loading state changes
   useEffect(() => {
-    const savedMessages = localStorage.getItem(CHAT_STORAGE_KEY);
-    if (savedMessages) {
-      try {
-        const parsedMessages = JSON.parse(savedMessages);
-        setLocalMessages(parsedMessages);
-      } catch (error) {
-        console.error('Error parsing saved messages:', error);
-        // Clear corrupted data
-        localStorage.removeItem(CHAT_STORAGE_KEY);
+    const scrollToBottom = () => {
+      if (containerRef.current) {
+        const container = containerRef.current;
+        
+        // Try multiple scroll methods for better compatibility
+        container.scrollTop = container.scrollHeight;
+        
+        // Also try scrollTo as backup
+        setTimeout(() => {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: 'smooth'
+          });
+        }, 10);
       }
-    }
-  }, []);
+    };
 
-  // Save messages to localStorage whenever messages prop changes with limit enforcement
+    // Small delay to ensure DOM is updated
+    const timeoutId = setTimeout(scrollToBottom, 50);
+    
+    return () => clearTimeout(timeoutId);
+  }, [messages, isLoading]);
+
+  // Also scroll when individual message content changes (for streaming)
   useEffect(() => {
-    if (messages.length > 0) {
-      // Combine new messages with existing local messages
-      const allMessages = [...localMessages, ...messages];
-      
-      // Remove duplicates based on message id
-      const uniqueMessages = allMessages.reduce((acc, current) => {
-        if (!acc.find(message => message.id === current.id)) {
-          acc.push(current);
-        }
-        return acc;
-      }, [] as Message[]);
+    const scrollToBottom = () => {
+      if (containerRef.current) {
+        const container = containerRef.current;
+        container.scrollTop = container.scrollHeight;
+        
+        // Smooth scroll as backup
+        setTimeout(() => {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: 'smooth'
+          });
+        }, 10);
+      }
+    };
 
-      // Keep only the most recent MAX_INTERACTIONS messages
-      const limitedMessages = uniqueMessages.slice(-MAX_INTERACTIONS);
-      
-      // Update localStorage and state
-      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(limitedMessages));
-      setLocalMessages(limitedMessages);
-    }
-  }, [messages]); // Only depend on messages prop
-
-  // Use localMessages for display to ensure we show persisted data
-  const displayMessages = localMessages.length > 0 ? localMessages : messages;
-
-  // Clear chat history function (optional - can be exposed via props if needed)
-  const clearChatHistory = () => {
-    localStorage.removeItem(CHAT_STORAGE_KEY);
-    setLocalMessages([]);
-  };
+    // Scroll after a short delay to allow content to render
+    const timeoutId = setTimeout(scrollToBottom, 100);
+    
+    return () => clearTimeout(timeoutId);
+  }, [messages.map(msg => msg.content).join('')]);
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div ref={containerRef} className="h-full overflow-y-auto">
       <div className="max-w-4xl mx-auto">
-        {displayMessages.map((message) => (
+        {messages.map((message) => (
           <MessageBubble key={message.id} message={message} />
         ))}
-        {isLoading && <TypingIndicator />}
-        
+        {/* Invisible element to scroll to */}
+        <div ref={messagesEndRef} className="h-1" />
       </div>
     </div>
   );
