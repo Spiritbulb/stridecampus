@@ -8,7 +8,9 @@ import PostCard from '@/components/feed/main/PostCard'; // Assuming you have a P
 import { usePostActions } from '@/hooks/usePostActions';
 import { useMemberCounts } from '@/components/feed/main/deps/sidebar';
 import { useApp } from '@/contexts/AppContext';
-import { Plus, Filter, TrendingUp, Clock, Users } from 'lucide-react';
+import SpaceManagement from '@/components/spaces/SpaceManagement';
+import SpaceSettings from '@/components/spaces/SpaceSettings';
+import { Plus, Filter, TrendingUp, Clock, Users, Settings, Crown, Shield, User as UserIcon } from 'lucide-react';
 
 export default function SpacePage() {
   const params = useParams();
@@ -17,10 +19,11 @@ export default function SpacePage() {
   const [sortBy, setSortBy] = useState<'new' | 'hot'>('new');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>();
+  const [activeTab, setActiveTab] = useState<'posts' | 'members' | 'settings'>('posts');
   
   // Use the hook to fetch data
   const { posts, spaces, isLoading, refetch } = useFeedData(slug, sortBy, user);
-  const { memberCounts } = useMemberCounts(spaces);
+  const { memberCounts, postCounts } = useMemberCounts(spaces);
   
   // Find the current space details
   const currentSpace = spaces.find(space => space.id === slug);
@@ -32,6 +35,32 @@ export default function SpacePage() {
   
   const handleCreateSpace = () => {
     setShowCreateModal(true);
+  };
+
+  const getRoleIcon = (role?: string) => {
+    switch (role) {
+      case 'admin':
+        return <Crown className="w-4 h-4 text-yellow-600" />;
+      case 'moderator':
+        return <Shield className="w-4 h-4 text-blue-600" />;
+      case 'member':
+        return <UserIcon className="w-4 h-4 text-gray-600" />;
+      default:
+        return null;
+    }
+  };
+
+  const getRoleBadge = (role?: string) => {
+    switch (role) {
+      case 'admin':
+        return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">Admin</span>;
+      case 'moderator':
+        return <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">Moderator</span>;
+      case 'member':
+        return <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Member</span>;
+      default:
+        return null;
+    }
   };
   
   if (isLoading) {
@@ -73,16 +102,26 @@ export default function SpacePage() {
           </div>
           
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
+            <div className="flex items-center gap-4 text-sm text-gray-600">
               <span className="flex items-center">
                 <Users size={16} className="mr-1" />
-                {/* You would need to implement member count for this specific space */}
-                {memberCounts[currentSpace.id]} members
+                {memberCounts[currentSpace.id] || 0} members
               </span>
+              <span>•</span>
+              <span>{postCounts[currentSpace.id] || 0} posts</span>
               <span>•</span>
               <span>
                 {currentSpace.is_public ? 'Public' : 'Private'} space
               </span>
+              {currentSpace.user_role && (
+                <>
+                  <span>•</span>
+                  <div className="flex items-center gap-1">
+                    {getRoleIcon(currentSpace.user_role)}
+                    {getRoleBadge(currentSpace.user_role)}
+                  </div>
+                </>
+              )}
             </div>
             
             {user && !currentSpace.user_role && currentSpace.is_public && (
@@ -97,13 +136,36 @@ export default function SpacePage() {
         </div>
       </div>
       
-      <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8">
-        {/* Main Content */}
-        <div className="flex-1">
-          {/* Create Post & Filter */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-gray-900">Posts</h2>
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* Navigation Tabs */}
+        <div className="bg-white rounded-lg border border-gray-200 mb-6">
+          <div className="flex border-b border-gray-200">
+            {[
+              { key: 'posts', label: 'Posts', icon: TrendingUp },
+              { key: 'members', label: 'Members', icon: Users },
+              { key: 'settings', label: 'Settings', icon: Settings }
+            ].map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key as any)}
+                className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === key
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'posts' && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-gray-900">Posts</h2>
               
               <div className="flex items-center gap-2">
                 <button 
@@ -156,7 +218,26 @@ export default function SpacePage() {
               </div>
             )}
           </div>
-        </div>
+        )}
+
+        {activeTab === 'members' && (
+          <SpaceManagement 
+            spaceId={currentSpace.id}
+            currentUserRole={currentSpace.user_role}
+            onMemberUpdate={refetch}
+          />
+        )}
+
+        {activeTab === 'settings' && (
+          <SpaceSettings 
+            space={currentSpace}
+            currentUserRole={currentSpace.user_role}
+            onSpaceUpdate={(updatedSpace) => {
+              // Update the space in the local state
+              refetch();
+            }}
+          />
+        )}
       </div>
     </div>
   );

@@ -27,29 +27,62 @@ export const fetchSpaces = async (user: User | null): Promise<Space[]> => {
     let query;
 
     if (user) {
+      // Get all public spaces and spaces the user created
       query = supabase
         .from('spaces')
-        .select(`
-          *,
-          members_count:space_memberships(count),
-          posts_count:posts(count),
-          user_role:space_memberships!inner(role)
-        `)
-        .eq('space_memberships.user_id', user.id);
+        .select('*')
+        .or(`is_public.eq.true,creator_id.eq.${user.id}`);
     } else {
       query = supabase
         .from('spaces')
-        .select(`
-          *,
-          members_count:space_memberships(count),
-          posts_count:posts(count)
-        `)
+        .select('*')
         .eq('is_public', true);
     }
 
     const { data, error } = await query;
     if (error) throw error;
-    return data || [];
+
+    // Get member and post counts, and user membership for each space
+    const spacesWithCounts = await Promise.all(
+      (data || []).map(async (space) => {
+        const [membersResult, postsResult, userMembershipResult] = await Promise.all([
+          supabase
+            .from('space_memberships')
+            .select('*', { count: 'exact', head: true })
+            .eq('space_id', space.id),
+          supabase
+            .from('posts')
+            .select('*', { count: 'exact', head: true })
+            .eq('space_id', space.id),
+          user ? supabase
+            .from('space_memberships')
+            .select('role')
+            .eq('space_id', space.id)
+            .eq('user_id', user.id)
+            .maybeSingle() : Promise.resolve({ data: null, error: null })
+        ]);
+
+        // Determine user role - creator is always admin, otherwise check membership
+        let userRole = undefined;
+        if (user) {
+          if (space.creator_id === user.id) {
+            userRole = 'admin';
+          } else if (userMembershipResult.data) {
+            userRole = userMembershipResult.data.role;
+          }
+        }
+
+        return {
+          ...space,
+          members_count: membersResult.count || 0,
+          posts_count: postsResult.count || 0,
+          user_role: userRole,
+          is_joined: !!userRole
+        };
+      })
+    );
+
+    return spacesWithCounts;
   } catch (error) {
     console.error('Error fetching spaces:', error);
     throw error;
@@ -68,10 +101,6 @@ export const fetchPosts = async (
         *,
         author:users!posts_author_id_fkey(full_name, avatar_url, checkmark, username),
         space:spaces(name, display_name, is_public),
-        vote_count:post_votes(count),
-        comment_count:comments(count),
-        share_count:post_shares(count),
-        user_vote:post_votes(vote_type),
         hashtags:post_hashtags(hashtag:hashtags(id, name)),
         mentions:post_mentions(mentioned_user:users!post_mentions_mentioned_user_id_fkey(id, username, full_name)),
         resource_tags:resource_tags(library:library(id, original_name, file_type, file_size))
@@ -118,17 +147,44 @@ export const fetchPosts = async (
     const { data, error } = await query;
     if (error) throw error;
 
-    // Process the data to extract counts and user votes
-    return (data || []).map(post => ({
-      ...post,
-      vote_count: post.vote_count?.[0]?.count || 0,
-      comment_count: post.comment_count?.[0]?.count || 0,
-      share_count: post.share_count?.[0]?.count || 0,
-      user_vote: post.user_vote?.[0]?.vote_type || 0,
-      hashtags: post.hashtags?.map((ht: any) => ht.hashtag) || [],
-      mentions: post.mentions?.map((m: any) => m.mentioned_user) || [],
-      resource_tags: post.resource_tags?.map((rt: any) => rt.library_file) || []
-    }));
+    // Get manual counts for each post
+    const postsWithCounts = await Promise.all(
+      (data || []).map(async (post) => {
+        const [votesResult, commentsResult, sharesResult, userVoteResult] = await Promise.all([
+          supabase
+            .from('post_votes')
+            .select('*', { count: 'exact', head: true })
+            .eq('post_id', post.id),
+          supabase
+            .from('comments')
+            .select('*', { count: 'exact', head: true })
+            .eq('post_id', post.id),
+          supabase
+            .from('post_shares')
+            .select('*', { count: 'exact', head: true })
+            .eq('post_id', post.id),
+          user ? supabase
+            .from('post_votes')
+            .select('vote_type')
+            .eq('post_id', post.id)
+            .eq('user_id', user.id)
+            .maybeSingle() : Promise.resolve({ data: null, error: null })
+        ]);
+
+        return {
+          ...post,
+          vote_count: votesResult.count || 0,
+          comment_count: commentsResult.count || 0,
+          share_count: sharesResult.count || 0,
+          user_vote: userVoteResult.data?.vote_type || 0,
+          hashtags: post.hashtags?.map((ht: any) => ht.hashtag) || [],
+          mentions: post.mentions?.map((m: any) => m.mentioned_user) || [],
+          resource_tags: post.resource_tags?.map((rt: any) => rt.library_file) || []
+        };
+      })
+    );
+
+    return postsWithCounts;
   } catch (error) {
     console.error('Error fetching posts:', error);
     throw error;

@@ -17,7 +17,7 @@ export const CREDIT_CONFIG = {
   SPEND: {
     FILE_DOWNLOAD_MIN: 50,         // Minimum cost for file downloads
     FILE_DOWNLOAD_MAX: 250,        // Maximum cost for file downloads
-    NIA_MESSAGE: 10,               // Cost per message to Nia AI
+    NIA_MESSAGE: 1,               // Cost per message to Nia AI
   },
   
   // Level System
