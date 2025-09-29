@@ -27,6 +27,40 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   currentUserId,
   user,
 }) => {
+  // Calculate the window of 5 users centered around current user
+  const getDisplayedUsers = () => {
+    if (leaderboard.length === 0) return [];
+    
+    const currentUserIndex = leaderboard.findIndex(entry => entry.id === currentUserId);
+    
+    // If current user not found, show top 5
+    if (currentUserIndex === -1) {
+      return leaderboard.slice(0, 5);
+    }
+    
+    const totalUsers = leaderboard.length;
+    const currentPosition = currentUserIndex + 1; // 1-based position
+    
+    // Calculate start and end indices for the window
+    let startIndex = currentUserIndex - 2; // 2 users above
+    let endIndex = currentUserIndex + 2;   // 2 users below
+    
+    // Handle edge cases
+    if (currentPosition <= 2) {
+      // Top 2 positions: show first 5 users
+      startIndex = 0;
+      endIndex = Math.min(4, totalUsers - 1);
+    } else if (currentPosition >= totalUsers - 1) {
+      // Last 2 positions: show last 5 users
+      startIndex = Math.max(0, totalUsers - 5);
+      endIndex = totalUsers - 1;
+    }
+    
+    return leaderboard.slice(startIndex, endIndex + 1);
+  };
+
+  const displayedUsers = getDisplayedUsers();
+
   return (
     <div className="bg-white border-2 border-[#f23b36] rounded-2xl p-6 max-w-xl mx-auto shadow-lg shadow-[#f23b36]/10 transition-all duration-300 hover:shadow-xl hover:shadow-[#f23b36]/20">
       <div className="flex items-center justify-between mb-6">
@@ -34,15 +68,18 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
           <BarChart2 className="h-6 w-auto text-[#f23b36]"/>
           Leaderboard
         </h3>
-        <button className="text-sm text-[#f23b36] hover:text-[#f23b36]/80 font-medium transition-all duration-200 hover:scale-105">
+        <a 
+          href="/arena/leaderboard"
+          className="text-sm text-[#f23b36] hover:text-[#f23b36]/80 font-medium transition-all duration-200 hover:scale-105"
+        >
           View All
-        </button>
+        </a>
       </div>
 
       <div className="space-y-3">
-        {leaderboard.length > 0 ? (
-          leaderboard.slice(0, 5).map((leader, idx) => {
-            const position = leader.position || idx + 1;
+        {displayedUsers.length > 0 ? (
+          displayedUsers.map((leader, idx) => {
+            const position = leader.position || (leaderboard.findIndex(entry => entry.id === leader.id) + 1);
             const isCurrentUser = leader.id === currentUserId;
 
             return (

@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react';
 import { Message, ChatState } from '../types';
 import { sendMessageToAI } from '../utils/api';
 import { useApp } from '@/contexts/AppContext';
+import { chargeNiaMessageCredits, checkUserCredits, awardNiaChatBonus, generateNiaChatBonus } from '@/utils/creditEconomy';
+import { CREDIT_CONFIG } from '@/utils/creditEconomy';
 
 export const useChat = () => {
   const { user } = useApp(); // Get user from context
@@ -11,6 +13,9 @@ export const useChat = () => {
     inputMessage: '',
     isLoading: false,
   });
+
+  // Track session for bonus purposes
+  const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
 
   const addMessage = useCallback((message: Omit<Message, 'id' | 'timestamp'>) => {
     const newMessage: Message = {
@@ -24,6 +29,18 @@ export const useChat = () => {
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim() || state.isLoading) return;
 
+    // Check if user has enough credits before sending message
+    if (user) {
+      const hasEnoughCredits = await checkUserCredits(user.id, CREDIT_CONFIG.SPEND.NIA_MESSAGE);
+      if (!hasEnoughCredits) {
+        addMessage({ 
+          content: "Sorry, you don't have enough credits to send a message. You need 10 credits to chat with me! 💸", 
+          isUser: false 
+        });
+        return;
+      }
+    }
+
     // Add user message
     addMessage({ content: content.trim(), isUser: true });
     setState(prev => ({ ...prev, inputMessage: '', isLoading: true }));
@@ -32,6 +49,24 @@ export const useChat = () => {
       // Pass user to the API call
       const response = await sendMessageToAI(content, state.messages, user);
       addMessage({ content: response, isUser: false });
+
+      // Charge credits after successful message
+      if (user) {
+        const messageId = Date.now().toString();
+        await chargeNiaMessageCredits(user.id, messageId);
+
+        // Award random bonus (20% chance)
+        if (Math.random() < 0.2) {
+          const bonusAmount = generateNiaChatBonus();
+          await awardNiaChatBonus(user.id, sessionId, bonusAmount);
+          
+          // Add bonus message
+          addMessage({ 
+            content: `🎉 Bonus! You earned ${bonusAmount} credits for chatting with me! Keep the conversation going! ✨`, 
+            isUser: false 
+          });
+        }
+      }
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       addMessage({ content: errorMessage, isUser: false });

@@ -87,22 +87,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     }
   }, [needsVerification, verificationEmail]);
 
-  // Listen for auth state changes
+  // Listen for auth state changes - simplified to avoid conflicts
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('Auth event:', event, session?.user?.email_confirmed_at);
-        //@ts-ignore
-        if (event === 'SIGNED_UP' || (event === 'SIGNED_IN' && session?.user && !session.user.email_confirmed_at)) {
-          // User just signed up or signed in but not verified, show verification screen
-          const emailToVerify = session?.user?.email || formData.email;
+        console.log('AuthScreen auth event:', event, session?.user?.email_confirmed_at);
+        
+        if ((event as string) === 'SIGNED_UP' && session?.user && !session.user.email_confirmed_at) {
+          // User just signed up but not verified, show verification screen
+          const emailToVerify = session.user.email || formData.email;
           if (emailToVerify) {
             setPendingVerificationEmail(emailToVerify);
             setAuthState(AuthState.EMAIL_VERIFICATION);
           }
-        } else if (event === 'SIGNED_IN' && session?.user?.email_confirmed_at) {
-          // User is signed in and verified, continue to app
-          console.log('User verified, continuing...');
         }
       }
     );

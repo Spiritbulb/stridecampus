@@ -47,9 +47,18 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({
     setError('');
     
     try {
+      // Detect if we're in mobile app context
+      const isMobileApp = typeof window !== 'undefined' && 
+        window.navigator.userAgent.includes('StrideCampusApp');
+      
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: email,
+        options: {
+          emailRedirectTo: isMobileApp 
+            ? 'stridecampus://auth/callback'
+            : `${window.location.origin}/auth/callback`
+        }
       });
       
       if (error) throw error;

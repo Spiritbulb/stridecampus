@@ -20,7 +20,13 @@
       "bundleIdentifier": "com.spiritbulb.stride",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": ["background-fetch", "remote-notification"]
+        "UIBackgroundModes": ["background-fetch", "remote-notification"],
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "stridecampus.auth",
+            "CFBundleURLSchemes": ["stridecampus"]
+          }
+        ]
       }
     },
     "android": {
@@ -38,7 +44,22 @@
         "android.permission.WAKE_LOCK",
         "com.google.android.c2dm.permission.RECEIVE"
       ],
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "stridecampus"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -7,6 +7,7 @@ import { QuickActions } from './QuickActions';
 import { QUICK_ACTIONS } from './deps/actions';
 import { User } from '@/utils/supabaseClient';
 import {MyLibrary} from '../library/MyLibrary';
+import { ArrowTurnUpFreeIcons, Coins01FreeIcons, Calendar01FreeIcons, ArrowUp01FreeIcons, RankingIcon } from '@hugeicons/core-free-icons';
 
 interface DashboardProps {
   user: User;
@@ -44,21 +45,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, transactions, leader
   // Memoize stats to prevent unnecessary recalculations
   const stats = useMemo(() => [
     {
-      title: 'Total Credits',
-      value: user.credits.toString(),
-      icon: TrendingUp,
-      color: 'text-accent' as const
-    },
-    {
       title: 'Credits Rank',
       value: leaderboardPosition ? `# ${leaderboardPosition}` : 'Unranked',
-      icon: Trophy,
+      icon: RankingIcon,
       color: 'text-warning' as const
+    },
+    {
+      title: 'Total Credits',
+      value: user.credits.toString(),
+      icon: Coins01FreeIcons,
+      color: 'text-accent' as const
     },
     {
       title: 'Login Streak',
       value: `${user.login_streak} days`,
-      icon: Calendar,
+      icon: Calendar01FreeIcons,
       color: 'text-destructive' as const
     }
   ], [user.credits, user.login_streak, leaderboardPosition]);
@@ -126,23 +127,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, transactions, leader
           ))}
         </div>
 
-        {/* Quick Actions */}
-        <div className="animate-in slide-in-from-right-4 duration-500" style={{ animationDelay: '300ms' }}>
-          <QuickActions actions={QUICK_ACTIONS} />
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Activity Feed */}
-          <div className="animate-in slide-in-from-right-4 duration-500" style={{ animationDelay: '400ms' }}>
-            <ActivityFeed 
-              transactions={transactions} 
-              loading={isLoading.transactions}
-            />
-          </div>
-          
-          {/* Leaderboard */}
-          <div className="animate-in slide-in-from-right-4 duration-500" style={{ animationDelay: '500ms' }}>
+        {/* Leaderboard */}
+        <div className="animate-in slide-in-from-right-4 duration-500" style={{ animationDelay: '500ms' }}>
             <Leaderboard 
               leaderboard={leaderboard} 
               currentUserId={user?.id} 
@@ -150,6 +136,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, transactions, leader
               user={user}
             />
           </div>
+
+        {/* Quick Actions */}
+        <div className="animate-in slide-in-from-right-4 duration-500" style={{ animationDelay: '300ms' }}>
+          <QuickActions actions={QUICK_ACTIONS} />
+        </div>
+
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          
+         
           
           {/* Library */}
           <div className="animate-in slide-in-from-right-4 duration-500" style={{ animationDelay: '500ms' }}>

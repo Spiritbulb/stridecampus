@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { User, Settings, Bell, Shield, Heart } from 'lucide-react';
+import { User, Settings, Bell, Shield, Heart, Palette } from 'lucide-react';
 
 interface Tab {
   id: string;
@@ -17,6 +17,7 @@ const tabs: Tab[] = [
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'account', label: 'Account', icon: Settings },
   { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'theme', label: 'Appearance', icon: Palette },
   { id: 'support', label: 'Support Us', icon: Heart },
   { id: 'privacy', label: 'Privacy', icon: Shield },
 ];
@@ -33,8 +34,8 @@ export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps
               onClick={() => onTabChange(tab.id)}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-[#f23b36] text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               }`}
             >
               <Icon size={20} />
@@ -46,4 +47,3 @@ export function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps
     </div>
   );
 }
-

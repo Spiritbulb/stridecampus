@@ -7,6 +7,8 @@ import { getFileById } from '@/utils/r2';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { YouTubeEmbed } from '@/components/library/YoutubeEmbed';
 import { LibraryFile } from '@/components/library/types';
+import { CostBubbleWrapper } from '@/components/ui/CostBubble';
+import { calculateResourcePurchaseCost } from '@/utils/creditEconomy';
 import { formatFileSize, formatDate } from '@/components/library/utils';
 
 export default function ResourcePage() {
@@ -279,13 +281,23 @@ export default function ResourcePage() {
                 <p className="text-gray-600 mb-4">
                   This file ({formatFileSize(resource.file_size)}) is ready for download.
                 </p>
-                <button
-                  onClick={handleDownload}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-[#f23b36] text-white rounded-xl hover:bg-[#e12a24] transition-colors text-lg font-medium"
+                <CostBubbleWrapper 
+                  cost={calculateResourcePurchaseCost(resource.file_size, {
+                    resource_type: resource.resource_type,
+                    filename: resource.filename,
+                    url: resource.url
+                  })} 
+                  position="top-right" 
+                  size="md"
                 >
-                  <Download size={20} />
-                  Download {resource.original_name}
-                </button>
+                  <button
+                    onClick={handleDownload}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-[#f23b36] text-white rounded-xl hover:bg-[#e12a24] transition-colors text-lg font-medium"
+                  >
+                    <Download size={20} />
+                    Download {resource.original_name}
+                  </button>
+                </CostBubbleWrapper>
               </div>
             </div>
           )}

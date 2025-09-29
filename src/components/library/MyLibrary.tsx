@@ -338,65 +338,6 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
           owner={true}
         />
         
-        {/* Personal stats overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-sm border p-4 card-responsive">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <BookOpen size={20} className="text-blue-600" />
-              </div>
-              <div className="overflow-safe">
-                <p className="text-sm font-medium text-gray-600 text-responsive">Total Resources</p>
-                <p className="text-2xl font-bold text-gray-900 text-responsive">{libraryStats.totalFiles}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow-sm border p-4 card-responsive">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <TrendingUp size={20} className="text-green-600" />
-              </div>
-              <div className="overflow-safe">
-                <p className="text-sm font-medium text-gray-600 text-responsive">Storage Used</p>
-                <p className="text-2xl font-bold text-gray-900 text-responsive">
-                  {formatFileSize(libraryStats.totalSize)}
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow-sm border p-4 card-responsive">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Upload size={20} className="text-purple-600" />
-              </div>
-              <div className="overflow-safe">
-                <p className="text-sm font-medium text-gray-600 text-responsive">Recent Uploads</p>
-                <p className="text-2xl font-bold text-gray-900 text-responsive">{libraryStats.recentUploads}</p>
-                <p className="text-xs text-gray-500 text-responsive">Last 7 days</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow-sm border p-4 card-responsive">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <BookOpen size={20} className="text-orange-600" />
-              </div>
-              <div className="overflow-safe">
-                <p className="text-sm font-medium text-gray-600 text-responsive">Top Subject</p>
-                <p className="text-lg font-bold text-gray-900 truncate text-responsive">
-                  {topSubject ? topSubject[0] : 'None yet'}
-                </p>
-                {topSubject && (
-                  <p className="text-xs text-gray-500 text-responsive">{topSubject[1]} resources</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-        
         <SearchFilters
           searchQuery={searchQuery}
           onSearchChange={handleSearchChange}
@@ -407,16 +348,6 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
           selectedResourceType={selectedResourceType}
           onResourceTypeChange={handleResourceTypeChange}
         />
-
-        <div className="mb-6 bg-white rounded-lg shadow-sm border p-4 card-responsive">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-sm text-gray-600 gap-2 sm:gap-0">
-            <span className="text-responsive">
-              Showing {files.length} of {pagination.total} your resources
-              {debouncedSearchQuery && ` matching "${debouncedSearchQuery}"`}
-            </span>
-            <span className="text-responsive">Page {pagination.page} of {pagination.pages}</span>
-          </div>
-        </div>
 
         <ResourcesGrid
           files={files}

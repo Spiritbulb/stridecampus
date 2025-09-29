@@ -13,7 +13,8 @@ import {
   ProfileSection, 
   AccountSection, 
   NotificationsSection, 
-  PrivacySection 
+  PrivacySection,
+  ThemeSection
 } from '@/components/settings';
 
 export default function SettingsPage() {
@@ -322,12 +323,12 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 md:ml-20 mb-16">
+    <div className="min-h-screen bg-background md:ml-20 mb-16">
       <div className="max-w-4xl mx-auto p-4 md:p-6">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-          <p className="text-gray-600 mt-2">Manage your account settings and preferences</p>
+          <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+          <p className="text-muted-foreground mt-2">Manage your account settings and preferences</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -364,6 +365,10 @@ export default function SettingsPage() {
 
             {activeTab === 'notifications' && (
               <NotificationsSection pushSupported={pushSupported} />
+            )}
+
+            {activeTab === 'theme' && (
+              <ThemeSection />
             )}
 
             {activeTab === 'support' && (

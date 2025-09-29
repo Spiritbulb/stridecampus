@@ -8,7 +8,20 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Detect if we're in a mobile app context
+const isMobileApp = typeof window !== 'undefined' && 
+  (window.navigator.userAgent.includes('StrideCampusApp') || 
+   window.location.protocol === 'stridecampus:');
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    // Configure redirect URLs based on context
+    detectSessionInUrl: true,
+    persistSession: true,
+    autoRefreshToken: true,
+    flowType: 'pkce'
+  }
+});
 
 // Database types based on your schema
 export interface Space {

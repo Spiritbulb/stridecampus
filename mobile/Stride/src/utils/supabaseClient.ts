@@ -1,13 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = 'https://laqocctbodlexjkfpfwh.supabase.co'
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxhcW9jY3Rib2RsZXhqa2ZwZndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0ODg1ODQsImV4cCI6MjA3MzA2NDU4NH0.fHrHxNNE_GrSN7QUz7Rm-lLW7E4Ym59LF9QfS7F4iHw'
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    // Configure for mobile app with deep link support
+    detectSessionInUrl: true,
+    persistSession: true,
+    autoRefreshToken: true,
+    flowType: 'pkce'
+  }
+});
 
 // Database types based on your schema
 export interface Space {

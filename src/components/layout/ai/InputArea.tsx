@@ -1,5 +1,9 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Send } from 'lucide-react';
+import { CostBubbleWrapper } from '@/components/ui/CostBubble';
+import { useApp } from '@/contexts/AppContext';
+import { checkUserCredits } from '@/utils/creditEconomy';
+import { CREDIT_CONFIG } from '@/utils/creditEconomy';
 
 interface InputAreaProps {
   value: string;
@@ -11,6 +15,23 @@ interface InputAreaProps {
 
 export const InputArea = ({ value, onChange, onSend, isLoading, messagesEndRef }: InputAreaProps) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { user } = useApp();
+  const [hasEnoughCredits, setHasEnoughCredits] = useState(true);
+  const NIA_MESSAGE_COST = CREDIT_CONFIG.SPEND.NIA_MESSAGE; // Cost per Nia message
+
+  // Check if user has enough credits
+  useEffect(() => {
+    const checkCredits = async () => {
+      if (user) {
+        const hasCredits = await checkUserCredits(user.id, NIA_MESSAGE_COST);
+        setHasEnoughCredits(hasCredits);
+      } else {
+        setHasEnoughCredits(false);
+      }
+    };
+    
+    checkCredits();
+  }, [user, NIA_MESSAGE_COST]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -20,7 +41,7 @@ export const InputArea = ({ value, onChange, onSend, isLoading, messagesEndRef }
   };
 
   const handleSend = () => {
-    if (value.trim() && !isLoading) {
+    if (value.trim() && !isLoading && hasEnoughCredits) {
       onSend(value);
       // Reset textarea height
       if (textareaRef.current) {
@@ -58,18 +79,28 @@ export const InputArea = ({ value, onChange, onSend, isLoading, messagesEndRef }
                 }}
               />
             </div>
-            <button 
-              onClick={handleSend}
-              disabled={!value.trim() || isLoading}
-              className="bg-gray-900 mb-1 text-white rounded-lg p-3 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-              title="Send message"
-            >
-              {isLoading ? (
-                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <Send className="h-7 w-7" />
-              )}
-            </button>
+            <CostBubbleWrapper cost={NIA_MESSAGE_COST} position="top-right" size="sm">
+              <button 
+                onClick={handleSend}
+                disabled={!value.trim() || isLoading || !hasEnoughCredits}
+                className={`mb-1 text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors disabled:cursor-not-allowed ${
+                  hasEnoughCredits 
+                    ? 'bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300' 
+                    : 'bg-red-500 hover:bg-red-600 disabled:bg-red-300'
+                }`}
+                title={
+                  !hasEnoughCredits 
+                    ? `Insufficient credits. You need ${NIA_MESSAGE_COST} credits to send a message.`
+                    : "Send message"
+                }
+              >
+                {isLoading ? (
+                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <Send className="h-7 w-7" />
+                )}
+              </button>
+            </CostBubbleWrapper>
           </div>
           <div className="flex items-end justify-end mt-2 px-1">
             <p className="text-xs text-gray-400">

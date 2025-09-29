@@ -28,8 +28,7 @@ export function useLeaderboard(id: any) {
           checkmark
         `)
         .eq('is_verified', true)
-        .order('credits', { ascending: false })
-        .limit(10);
+        .order('credits', { ascending: false });
 
       if (error) throw error;
       

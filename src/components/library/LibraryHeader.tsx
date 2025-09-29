@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Plus } from 'lucide-react';
+import { ArrowRight, Plus, Archive } from 'lucide-react';
 import { User } from './types';
 import { useRouter } from 'next/navigation';
 
@@ -12,6 +12,7 @@ interface LibraryHeaderProps {
 export const LibraryHeader: React.FC<LibraryHeaderProps> = ({ user, onUploadClick, owner }) => {
   const router = useRouter();
   const sendPublic = () => router.push('/library');
+  const goToArchive = () => router.push('/library/archive');
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-3xl p-8 mb-8 shadow-sm border border-gray-100">
@@ -76,7 +77,7 @@ export const LibraryHeader: React.FC<LibraryHeaderProps> = ({ user, onUploadClic
 
         {/* Upload Button Section */}
         {user && (
-          <div className="order-3 grid grid-row-2 gap-8">
+          <div className="order-3 grid grid-row-3 gap-6">
             <button
               onClick={onUploadClick}
               className="group relative overflow-hidden flex gap-3 px-8 py-4 bg-gradient-to-r from-[#f23b36] to-[#e12a24] text-white rounded-2xl font-semibold text-lg shadow-lg hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 justify-center items-center min-w-[200px]"
@@ -101,6 +102,32 @@ export const LibraryHeader: React.FC<LibraryHeaderProps> = ({ user, onUploadClic
               {/* Pulse effect on hover */}
               <div className="absolute inset-0 rounded-2xl bg-white/10 scale-0 group-hover:scale-100 opacity-0 group-hover:opacity-100 transition-all duration-300"></div>
             </button>
+            
+            <button
+              onClick={goToArchive}
+              className="group relative overflow-hidden flex gap-3 px-8 py-4 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-2xl font-semibold text-lg shadow-lg hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 justify-center items-center min-w-[200px]"
+            >
+              {/* Button background animation */}
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              
+              {/* Shine effect */}
+              <div className="absolute inset-0 -skew-x-12 -translate-x-full group-hover:translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700"></div>
+              
+              {/* Button content */}
+              <div className="relative flex items-center gap-3">
+                <Archive 
+                  size={22} 
+                  className="transform group-hover:scale-110 transition-transform duration-300" 
+                />
+                <span className="group-hover:tracking-wide transition-all duration-300">
+                  My Archive
+                </span>
+              </div>
+              
+              {/* Pulse effect on hover */}
+              <div className="absolute inset-0 rounded-2xl bg-white/10 scale-0 group-hover:scale-100 opacity-0 group-hover:opacity-100 transition-all duration-300"></div>
+            </button>
+            
             {owner &&(
             <button
               onClick={sendPublic}

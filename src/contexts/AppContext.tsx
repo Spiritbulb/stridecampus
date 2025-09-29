@@ -267,7 +267,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     router.push('/auth');
   }, [router]);
 
-  // Check auth state manually
+  // Check auth state manually - simplified to avoid conflicts
   const checkAuthState = useCallback(() => {
     const now = Date.now();
     if (now - state.lastAuthCheck < AUTH_CHECK_THROTTLE) return;
@@ -279,21 +279,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const needsVerification = !state.session.user.email_confirmed_at;
       dispatch({ type: 'SET_REQUIRES_EMAIL_VERIFICATION', payload: needsVerification });
       
-      if (state.justSignedUp && !needsVerification) {
+      // Only handle screen transitions if we're not already on the right screen
+      // and not in the middle of email verification
+      if (!needsVerification && state.justSignedUp) {
         handleScreenTransition('welcome-credits');
-      } else if (state.currentScreen !== 'dashboard' && state.currentScreen !== 'welcome-credits') {
-        handleScreenTransition('dashboard');
       }
     } else {
-      // Not authenticated
+      // Not authenticated - let Next.js router handle navigation
       dispatch({ type: 'SET_REQUIRES_EMAIL_VERIFICATION', payload: false });
-      if (state.currentScreen !== 'dashboard') {
-        handleNavigateToAuth();
-      }
     }
-  }, [state.session, state.user, state.lastAuthCheck, state.justSignedUp, state.currentScreen, handleScreenTransition]);
+  }, [state.session, state.user, state.lastAuthCheck, state.justSignedUp, handleScreenTransition]);
 
-  // Single effect to handle all auth state changes
+  // Simplified auth state change handling
   useEffect(() => {
     const prevAuth = authStateRef.current;
     const authChanged = (
@@ -305,8 +302,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Skip if no auth changes and already initialized
     if (!authChanged && isInitializedRef.current) return;
     
-    const now = Date.now();
-    
     // Handle initial load - show loading state until auth is determined
     if (!isInitializedRef.current) {
       if (authLoading) {
@@ -317,15 +312,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       isInitializedRef.current = true;
       dispatch({ type: 'SET_LOADING', payload: false });
       
-      checkAuthState();
+      // Only check auth state on initial load, let individual pages handle their own logic
+      if (session && user) {
+        const needsVerification = !session.user.email_confirmed_at;
+        dispatch({ type: 'SET_REQUIRES_EMAIL_VERIFICATION', payload: needsVerification });
+      }
       return;
     }
     
-    // Skip rapid auth checks
-    if (authLoading || now - state.lastAuthCheck < AUTH_CHECK_THROTTLE) return;
+    // Update auth state ref
+    authStateRef.current = { session, user, loading: authLoading };
     
-    checkAuthState();
-  }, [session, user, authLoading, state.lastAuthCheck, checkAuthState]);
+    // For subsequent changes, just update the verification status
+    if (session && user) {
+      const needsVerification = !session.user.email_confirmed_at;
+      dispatch({ type: 'SET_REQUIRES_EMAIL_VERIFICATION', payload: needsVerification });
+    } else {
+      dispatch({ type: 'SET_REQUIRES_EMAIL_VERIFICATION', payload: false });
+    }
+  }, [session, user, authLoading]);
 
   // Persist state changes (debounced) - excluding sensitive data
   useEffect(() => {

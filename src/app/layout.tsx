@@ -3,6 +3,7 @@ import { Inter, Poppins } from 'next/font/google'
 import './globals.css'
 import 'katex/dist/katex.min.css';
 import { AppProvider } from '@/contexts/AppContext'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 import { AuthAwareLayout } from './AuthAwareLayout';
 import type { Metadata } from 'next'
 import { PWAProvider } from '@/contexts/PWAProvider'
@@ -113,12 +114,14 @@ export default function RootLayout({
       </head>
       <body className={`${poppins.className} antialiased`}>
         <PWAProvider />
-        <AppProvider>
-          <AuthAwareLayout>
-            {children}
-          </AuthAwareLayout>
-          <Toaster />
-        </AppProvider>
+        <ThemeProvider>
+          <AppProvider>
+            <AuthAwareLayout>
+              {children}
+            </AuthAwareLayout>
+            <Toaster />
+          </AppProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

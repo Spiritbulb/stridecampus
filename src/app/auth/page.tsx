@@ -13,54 +13,25 @@ function AuthPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const referralCode = searchParams.get('ref');
-  const { session, loading: authLoading, signUp, signIn } = useAuth();
+  const { session, user, loading: authLoading, signUp, signIn } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState<string>('');
-  const data  = supabase.auth.getUser();
-  //@ts-ignore
-  const user = data.user;
 
   // Check if current user needs email verification
   useEffect(() => {
-    const checkVerificationStatus = async () => {
-      if (user && user.email && !user.email_confirmed_at) {
-        setNeedsVerification(true);
-        setVerificationEmail(user.email);
-      } else if (user && user.email_confirmed_at) {
+    if (user && session) {
+      if (session.user.email_confirmed_at) {
         // User is verified, redirect to main app
         router.push('/arena');
+      } else if (session.user.email) {
+        // User exists but not verified
+        setNeedsVerification(true);
+        setVerificationEmail(session.user.email);
       }
-    };
+    }
+  }, [user, session, router]);
 
-    checkVerificationStatus();
-  }, [user, router]);
-
-  // Listen to auth changes
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('Auth event in page:', event, session?.user?.email_confirmed_at);
-        
-        if (session?.user) {
-          if (session.user.email_confirmed_at) {
-            // User is verified, redirect to main app
-            toast({
-              title: 'Email verified!',
-              description: 'Welcome to the platform.',
-            });
-            router.push('/arena');
-          } else if (session.user.email) {
-            // User exists but not verified
-            setNeedsVerification(true);
-            setVerificationEmail(session.user.email);
-          }
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, [router]);
 
   const handleSignUp = useCallback(async (email: string, password: string, username: string) => {
     setIsLoading(true);

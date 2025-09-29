@@ -176,3 +176,4 @@ Web notifications work via the PWA (Progressive Web App) system:
 
 Your notification system is now fully functional and ready for testing! The admin panel at `/admin/announcements` is your main tool for testing and sending notifications. All automatic triggers (new messages, new followers) are working and will send notifications in real-time.
 
+

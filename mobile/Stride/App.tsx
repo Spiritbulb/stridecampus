@@ -4,6 +4,9 @@ import { WebView } from 'react-native-webview';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+import * as Linking from 'expo-linking';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import AppUpdatePrompt from './src/components/AppUpdatePrompt';
 
 // Configure how notifications should be handled when the app is running
 Notifications.setNotificationHandler({
@@ -21,8 +24,25 @@ export default function App() {
   const [canGoBack, setCanGoBack] = useState(false);
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
   const [expoPushToken, setExpoPushToken] = useState<string>('');
+  const [showUpdatePrompt, setShowUpdatePrompt] = useState(false);
 
-  // Register for push notifications
+  // Check if user has already seen the update prompt
+  useEffect(() => {
+    const checkUpdatePromptStatus = async () => {
+      try {
+        const hasSeenPrompt = await AsyncStorage.getItem('hasSeenUpdatePrompt');
+        if (!hasSeenPrompt) {
+          setShowUpdatePrompt(true);
+        }
+      } catch (error) {
+        console.error('Error checking update prompt status:', error);
+      }
+    };
+
+    checkUpdatePromptStatus();
+  }, []);
+
+  // Register for push notifications and deep links
   useEffect(() => {
     registerForPushNotificationsAsync().then(token => {
       if (token) {
@@ -48,9 +68,40 @@ export default function App() {
       }
     });
 
+    // Handle deep links for email verification
+    const handleDeepLink = (url: string) => {
+      console.log('Deep link received:', url);
+      
+      // Check if it's an auth callback URL
+      if (url.includes('auth/callback') || url.includes('code=')) {
+        // Extract the URL parameters and send to WebView
+        const webUrl = url.replace('stridecampus://', 'https://app.stridecampus.com/');
+        
+        if (webViewRef.current) {
+          webViewRef.current.postMessage(JSON.stringify({
+            type: 'AUTH_CALLBACK',
+            url: webUrl
+          }));
+        }
+      }
+    };
+
+    // Listen for deep links when app is already running
+    const linkingListener = Linking.addEventListener('url', ({ url }) => {
+      handleDeepLink(url);
+    });
+
+    // Handle deep link when app is opened from a closed state
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink(url);
+      }
+    });
+
     return () => {
       notificationListener.remove();
       responseListener.remove();
+      linkingListener.remove();
     };
   }, []);
 
@@ -216,6 +267,40 @@ export default function App() {
             }, 100);
           }
           break;
+
+        case 'AUTH_CALLBACK':
+          // Handle auth callback from deep link
+          if (data.url && webViewRef.current) {
+            webViewRef.current.injectJavaScript(`
+              // Handle the auth callback in the web app
+              if (window.location.pathname === '/auth/callback') {
+                // Extract URL parameters and handle auth
+                const urlParams = new URLSearchParams(window.location.search);
+                const code = urlParams.get('code');
+                const error = urlParams.get('error');
+                
+                if (code) {
+                  // Exchange code for session
+                  window.supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+                    if (error) {
+                      console.error('Auth callback error:', error);
+                    } else if (data.session) {
+                      console.log('Auth successful, redirecting...');
+                      window.location.href = '/arena';
+                    }
+                  });
+                } else if (error) {
+                  console.error('Auth error:', error);
+                  window.location.href = '/auth';
+                }
+              } else {
+                // Navigate to the callback URL
+                window.location.href = '${data.url}';
+              }
+              true;
+            `);
+          }
+          break;
           
         default:
           console.log('Unhandled message from WebView:', data);
@@ -262,6 +347,16 @@ export default function App() {
     );
   };
 
+  const handleCloseUpdatePrompt = async () => {
+    try {
+      await AsyncStorage.setItem('hasSeenUpdatePrompt', 'true');
+      setShowUpdatePrompt(false);
+    } catch (error) {
+      console.error('Error saving update prompt status:', error);
+      setShowUpdatePrompt(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar 
@@ -269,6 +364,10 @@ export default function App() {
         backgroundColor="#ffffff"
         translucent={Platform.OS === 'android'}
       />
+      
+      {showUpdatePrompt && (
+        <AppUpdatePrompt onClose={handleCloseUpdatePrompt} />
+      )}
       
       <WebView 
         ref={webViewRef}

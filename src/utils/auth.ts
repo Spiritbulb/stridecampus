@@ -273,9 +273,18 @@ export async function signUp(email: string, password: string, username: string, 
     // Extract school domain
     const schoolDomain = email.split('@')[1];
     
+    // Detect if we're in mobile app context
+    const isMobileApp = typeof window !== 'undefined' && 
+      window.navigator.userAgent.includes('StrideCampusApp');
+    
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: isMobileApp 
+          ? 'stridecampus://auth/callback'
+          : `${window.location.origin}/auth/callback`
+      }
     });
 
     if (authError) throw authError;
@@ -291,7 +300,7 @@ export async function signUp(email: string, password: string, username: string, 
           school_domain: schoolDomain,
           username: username.toLowerCase(),
           credits: 120, // Welcome bonus
-          is_verified: true, // Set to true since verification is disabled
+          is_verified: false, // Let Supabase handle email verification
           referred_by_code: referralCode || null
         });
 
@@ -358,7 +367,7 @@ export async function signUp(email: string, password: string, username: string, 
         school_domain: schoolDomain,
         username: username,
         credits: 120,
-        is_verified: true,
+        is_verified: false, // Will be updated when email is verified
         login_streak: 0,
         last_login_date: null,
         created_at: new Date().toISOString(),

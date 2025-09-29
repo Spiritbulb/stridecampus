@@ -115,26 +115,13 @@ export async function uploadResourceLink(
       throw new Error(error.message || 'Failed to save link to database');
     }
 
-    // Award 20 credits for link upload
+    // Award credits for link upload using new credit economy system
     try {
-      const currentCredits = data.users?.credits || 0;
-      const newCreditBalance = currentCredits + 20;
-      
-      await createTransactionWithCreditsUpdate(
-        userId,
-        {
-          amount: 20,
-          description: `${finalResourceType} link upload reward`,
-          type: 'bonus',
-          reference_id: `${finalResourceType}_upload_${data.id}`,
-          metadata: {
-            resource_id: data.id,
-            url: url,
-            upload_type: finalResourceType
-          }
-        },
-        newCreditBalance,
-      );
+      const { awardResourceUploadCredits } = await import('./creditEconomy');
+      const result = await awardResourceUploadCredits(userId, data.id, 'link');
+      if (!result.success) {
+        console.error('Failed to award credits for link upload:', result.error);
+      }
     } catch (creditError) {
       console.error('Failed to award credits for link upload:', creditError);
     }
@@ -342,26 +329,13 @@ export async function uploadFile(
       throw new Error('Failed to save file metadata');
     }
 
-    // Award 20 credits for file upload
+    // Award credits for file upload using new credit economy system
     try {
-      const currentCredits = data.users?.credits || 0;
-      const newCreditBalance = currentCredits + 20;
-      
-      await createTransactionWithCreditsUpdate(
-        userId,
-        {
-          amount: 20,
-          description: 'File upload reward',
-          type: 'bonus',
-          reference_id: `file_upload_${data.id}`,
-          metadata: {
-            file_id: data.id,
-            file_name: file.name,
-            upload_type: 'file'
-          }
-        },
-        newCreditBalance
-      );
+      const { awardResourceUploadCredits } = await import('./creditEconomy');
+      const result = await awardResourceUploadCredits(userId, data.id, 'file');
+      if (!result.success) {
+        console.error('Failed to award credits for file upload:', result.error);
+      }
     } catch (creditError) {
       console.error('Failed to award credits for file upload:', creditError);
     }

@@ -23,6 +23,14 @@ export interface LibraryFile {
   };
 }
 
+export interface ArchiveResource {
+  resource_id: string;
+  resource_data: LibraryFile;
+  purchased_at: string;
+  cost_paid: number;
+  commission_paid: number;
+}
+
 export interface User {
   id: string;
   // Add other user properties as needed
