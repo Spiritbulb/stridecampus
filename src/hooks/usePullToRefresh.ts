@@ -14,7 +14,7 @@ interface UsePullToRefreshReturn {
   pullDistance: number;
   isPulling: boolean;
   isRefreshing: boolean;
-  containerRef: any;
+  containerRef: RefObject<HTMLDivElement | null>;
   touchHandlers: {
     onTouchStart: (e: React.TouchEvent) => void;
     onTouchMove: (e: React.TouchEvent) => void;

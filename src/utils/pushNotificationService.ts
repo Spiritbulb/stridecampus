@@ -102,7 +102,10 @@ class PushNotificationService {
    * Send push notification to a single token
    */
   async sendToToken(token: string, message: PushMessage): Promise<PushNotificationResult> {
+    console.log('📱 Attempting to send push notification to token:', token.substring(0, 20) + '...');
+    
     if (!this.isValidExpoPushToken(token)) {
+      console.error('❌ Invalid push token format:', token);
       return { success: false, message: 'Invalid push token format' };
     }
 
@@ -118,6 +121,13 @@ class PushNotificationService {
     };
 
     try {
+      console.log('📤 Sending push notification to Expo:', {
+        to: token.substring(0, 20) + '...',
+        title: message.title,
+        body: message.body,
+        channelId: message.channelId
+      });
+
       const response = await fetch(this.EXPO_PUSH_URL, {
         method: 'POST',
         headers: {
@@ -129,16 +139,20 @@ class PushNotificationService {
       });
 
       const result = await response.json();
+      console.log('📱 Expo push response:', result);
 
       if (result.data && result.data[0]) {
         const pushResult = result.data[0];
         if (pushResult.status === 'ok') {
+          console.log('✅ Push notification sent successfully:', pushResult.id);
           return { 
             success: true, 
             id: pushResult.id,
-            message: 'Notification sent successfully' 
+            message: 'Notification sent successfully',
+            details: pushResult
           };
         } else {
+          console.error('❌ Push notification failed:', pushResult.message);
           return { 
             success: false, 
             message: pushResult.message || 'Failed to send notification',
@@ -147,10 +161,19 @@ class PushNotificationService {
         }
       }
 
-      return { success: false, message: 'Unexpected response format', details: result };
+      console.error('❌ Unexpected response format from Expo:', result);
+      return { 
+        success: false, 
+        message: 'Unexpected response format from Expo push service',
+        details: result 
+      };
     } catch (error) {
-      console.error('Error sending push notification:', error);
-      return { success: false, message: 'Network error', details: error };
+      console.error('❌ Error sending push notification:', error);
+      return { 
+        success: false, 
+        message: `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        details: error 
+      };
     }
   }
 

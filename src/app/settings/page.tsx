@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useApp } from '@/contexts/AppContext';
 import { useRouter } from 'next/navigation';
 import { useUnifiedNotifications } from '@/hooks/useUnifiedNotifications';
+import { usePageRefresh } from '@/hooks/usePageRefresh';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { supabase } from '@/utils/supabaseClient';
 import { toast } from '@/hooks/use-toast';
@@ -25,11 +26,13 @@ export default function SettingsPage() {
     isSupported: pushSupported,
     permission: pushPermission,
     expoPushToken,
+    fcmToken, // Add FCM token support
     isLoading: pushLoading,
     type: notificationType,
     requestPermission: requestPushPermission,
     updatePushToken,
-    sendTestNotification
+    sendTestNotification,
+    syncTokenWhenUserLogsIn // Add sync function
   } = useUnifiedNotifications();
 
   const [loading, setLoading] = useState(false);
@@ -85,7 +88,8 @@ export default function SettingsPage() {
 
   // Update push token when available and user wants push notifications
   useEffect(() => {
-    if (user && expoPushToken && accountSettings.push_notifications && pushPermission === 'granted') {
+    const currentToken = expoPushToken || fcmToken; // Use either token type
+    if (user && currentToken && accountSettings.push_notifications && pushPermission === 'granted') {
       updatePushToken(user.id).catch(error => {
         console.error('Failed to update push token:', error);
         toast({
@@ -95,7 +99,7 @@ export default function SettingsPage() {
         });
       });
     }
-  }, [user, expoPushToken, accountSettings.push_notifications, pushPermission, updatePushToken]);
+  }, [user, expoPushToken, fcmToken, accountSettings.push_notifications, pushPermission, updatePushToken]);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -103,6 +107,16 @@ export default function SettingsPage() {
       handleNavigateToAuth();
     }
   }, [authLoading, isAuthenticated, handleNavigateToAuth]);
+
+  // Refresh function for pull-to-refresh
+  const handleRefresh = useCallback(async () => {
+    if (user) {
+      await refreshUser();
+    }
+  }, [user, refreshUser]);
+
+  // Register refresh function for pull-to-refresh
+  usePageRefresh(handleRefresh);
 
   // Generic function to update any setting with optimistic updates
   const updateSetting = useCallback(async (key: string, value: any, additionalData?: Record<string, any>) => {
@@ -246,7 +260,7 @@ export default function SettingsPage() {
     }
 
     const success = await updateSetting('push_notifications', enabled, {
-      expo_push_token: enabled && expoPushToken ? expoPushToken : null
+      expo_push_token: enabled && (expoPushToken || fcmToken) ? (expoPushToken || fcmToken) : null
     });
 
     if (success) {
@@ -353,7 +367,7 @@ export default function SettingsPage() {
                 pushSupported={pushSupported}
                 pushPermission={pushPermission}
                 notificationType={notificationType}
-                expoPushToken={expoPushToken}
+                expoPushToken={expoPushToken || fcmToken} // Use either token type
                 pushLoading={pushLoading}
                 onEmailNotificationsToggle={handleEmailNotificationsToggle}
                 onMarketingEmailsToggle={handleMarketingEmailsToggle}
@@ -381,7 +395,7 @@ export default function SettingsPage() {
                 accountSettings={accountSettings}
                 pushSupported={pushSupported}
                 pushPermission={pushPermission}
-                expoPushToken={expoPushToken}
+                expoPushToken={expoPushToken || fcmToken} // Use either token type
                 loading={loading}
                 onDeleteAccount={handleDeleteAccount}
               />

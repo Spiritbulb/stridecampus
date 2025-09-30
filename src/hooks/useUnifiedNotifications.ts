@@ -9,12 +9,14 @@ interface UnifiedNotificationState {
   type: 'expo' | 'pwa' | 'none';
   isLoading: boolean;
   expoPushToken: string | null;
+  fcmToken: string | null; // Add FCM token support
 }
 
 interface UseUnifiedNotificationsReturn extends UnifiedNotificationState {
   requestPermission: () => Promise<boolean>;
   updatePushToken: (userId: string) => Promise<void>;
   sendTestNotification: () => Promise<void>;
+  syncTokenWhenUserLogsIn: (userId: string) => Promise<void>; // Add sync function
 }
 
 export function useUnifiedNotifications(): UseUnifiedNotificationsReturn {
@@ -27,6 +29,7 @@ export function useUnifiedNotifications(): UseUnifiedNotificationsReturn {
     type: 'none',
     isLoading: false,
     expoPushToken: null,
+    fcmToken: null, // Add FCM token support
   });
 
   // Determine which notification system to use
@@ -39,6 +42,7 @@ export function useUnifiedNotifications(): UseUnifiedNotificationsReturn {
         type: 'expo',
         isLoading: expo.isLoading,
         expoPushToken: expo.expoPushToken,
+        fcmToken: expo.fcmToken, // Add FCM token support
       });
     } 
     // Fallback to PWA notifications (web browser)
@@ -49,6 +53,7 @@ export function useUnifiedNotifications(): UseUnifiedNotificationsReturn {
         type: 'pwa',
         isLoading: pwa.isLoading,
         expoPushToken: null,
+        fcmToken: null, // PWA doesn't use FCM tokens
       });
     }
     // No notification support
@@ -59,10 +64,11 @@ export function useUnifiedNotifications(): UseUnifiedNotificationsReturn {
         type: 'none',
         isLoading: false,
         expoPushToken: null,
+        fcmToken: null, // No FCM token support
       });
     }
   }, [
-    expo.isSupported, expo.permission, expo.isLoading, expo.expoPushToken,
+    expo.isSupported, expo.permission, expo.isLoading, expo.expoPushToken, expo.fcmToken,
     pwa.isSupported, pwa.permission, pwa.isLoading
   ]);
 
@@ -82,13 +88,13 @@ export function useUnifiedNotifications(): UseUnifiedNotificationsReturn {
   }, [state.type, expo.requestPermission, pwa.requestPermission]);
 
   const updatePushToken = useCallback(async (userId: string): Promise<void> => {
-    if (state.type === 'expo' && expo.expoPushToken) {
+    if (state.type === 'expo' && (expo.expoPushToken || expo.fcmToken)) {
       return await expo.updatePushToken(userId);
     }
     // PWA notifications don't use expo push tokens
     // They use subscription endpoints which are handled differently
     console.log('PWA notifications use subscription-based system, not expo tokens');
-  }, [state.type, expo.updatePushToken, expo.expoPushToken]);
+  }, [state.type, expo.updatePushToken, expo.expoPushToken, expo.fcmToken]);
 
   const sendTestNotification = useCallback(async (): Promise<void> => {
     if (state.type === 'expo') {
@@ -109,6 +115,7 @@ export function useUnifiedNotifications(): UseUnifiedNotificationsReturn {
     requestPermission,
     updatePushToken,
     sendTestNotification,
+    syncTokenWhenUserLogsIn: expo.syncTokenWhenUserLogsIn, // Expose sync function
   };
 }
 

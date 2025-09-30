@@ -1,6 +1,7 @@
 import React, { memo, useState } from 'react';
 import { ChatHeaderProps } from '@/types/chat';
 import { Button } from '@/components/ui/button';
+import OnlineStatus from './OnlineStatus';
 import { 
   ArrowLeftIcon,
   ChatBubbleLeftIcon,
@@ -44,6 +45,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = memo(({
   onBackToChats,
   onViewProfile,
   isMobile = false,
+  onlineUsers = [],
 }) => {
   const [showChatMenu, setShowChatMenu] = useState(false);
 
@@ -52,6 +54,10 @@ const ChatHeader: React.FC<ChatHeaderProps> = memo(({
   // Generate consistent display name
   const displayName = otherParticipant.users?.full_name || 
     generateConsistentNickname(otherParticipant.user_id);
+
+  // Check if user is online
+  const isUserOnline = onlineUsers.some(user => user.userId === otherParticipant.user_id);
+  const onlineUser = onlineUsers.find(user => user.userId === otherParticipant.user_id);
 
   const handleShare = () => {
     if (navigator.share) {
@@ -99,6 +105,11 @@ const ChatHeader: React.FC<ChatHeaderProps> = memo(({
               <h1 className="text-lg font-semibold text-gray-900">
                 {displayName}
               </h1>
+              <OnlineStatus 
+                isOnline={isUserOnline}
+                lastSeen={onlineUser?.lastSeen}
+                username={otherParticipant.users?.username || ''}
+              />
             </div>
           </div>
         </div>

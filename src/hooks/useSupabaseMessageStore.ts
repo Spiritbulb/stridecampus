@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Message } from '@/components/layout/ai/types';
 import { supabase } from '@/utils/supabaseClient';
 
@@ -32,8 +32,63 @@ interface MessageStoreState {
   };
 }
 
+// Cache configuration
+const CACHE_CONFIG = {
+  SESSION_CACHE_TTL: 5 * 60 * 1000, // 5 minutes
+  MESSAGE_CACHE_TTL: 2 * 60 * 1000, // 2 minutes
+  MAX_CACHE_SIZE: 50, // Maximum number of sessions to cache
+  PAGINATION_SIZE: 20, // Messages per page
+};
+
+// Cache interfaces
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  ttl: number;
+}
+
+interface SessionCache {
+  [sessionId: string]: CacheEntry<ChatSessionWithMessages>;
+}
+
+// Global cache for sessions
+const sessionCache: SessionCache = {};
+const cacheTimestamps: { [key: string]: number } = {};
+
+// Cache utility functions
+const isCacheValid = (key: string, ttl: number): boolean => {
+  const timestamp = cacheTimestamps[key];
+  return !!timestamp && (Date.now() - timestamp) < ttl;
+};
+
+const setCache = <T>(key: string, data: T, ttl: number): void => {
+  sessionCache[key] = { data: data as any, timestamp: Date.now(), ttl };
+  cacheTimestamps[key] = Date.now();
+};
+
+const getCache = <T>(key: string): T | null => {
+  const entry = sessionCache[key];
+  if (!entry || !isCacheValid(key, entry.ttl)) {
+    delete sessionCache[key];
+    delete cacheTimestamps[key];
+    return null;
+  }
+  return entry.data as T;
+};
+
+const clearExpiredCache = (): void => {
+  const now = Date.now();
+  Object.keys(sessionCache).forEach(key => {
+    const entry = sessionCache[key];
+    if (!entry || (now - entry.timestamp) >= entry.ttl) {
+      delete sessionCache[key];
+      delete cacheTimestamps[key];
+    }
+  });
+};
+
 /**
- * Custom hook for managing AI chat messages with Supabase storage
+ * Custom hook for managing AI chat messages with Supabase storage and caching
  */
 export const useSupabaseMessageStore = (userId?: string) => {
   const [state, setState] = useState<MessageStoreState>({
@@ -49,7 +104,17 @@ export const useSupabaseMessageStore = (userId?: string) => {
     },
   });
 
-  // Initialize store from Supabase
+  // Refs for performance optimization
+  const lastFetchTime = useRef<number>(0);
+  const fetchThrottle = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup expired cache periodically
+  useEffect(() => {
+    const interval = setInterval(clearExpiredCache, CACHE_CONFIG.SESSION_CACHE_TTL);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Initialize store from Supabase with caching
   useEffect(() => {
     if (!userId) {
       setState(prev => ({ ...prev, isInitialized: true }));
@@ -60,11 +125,30 @@ export const useSupabaseMessageStore = (userId?: string) => {
       try {
         setState(prev => ({ ...prev, isLoading: true }));
         
-        // Load sessions and active session
-        const [sessions, activeSession] = await Promise.all([
-          getSessions(userId),
-          getActiveSession(userId),
-        ]);
+        // Check cache first
+        const cacheKey = `sessions_${userId}`;
+        const cachedSessions = getCache<ChatSessionWithMessages[]>(cacheKey);
+        
+        let sessions: ChatSessionWithMessages[];
+        let activeSession: ChatSessionWithMessages | null;
+
+        if (cachedSessions) {
+          // Use cached data
+          sessions = cachedSessions;
+          activeSession = sessions.find(s => s.is_active) || null;
+        } else {
+          // Fetch from database
+          const [fetchedSessions, fetchedActiveSession] = await Promise.all([
+            getSessions(userId),
+            getActiveSession(userId),
+          ]);
+          
+          sessions = fetchedSessions;
+          activeSession = fetchedActiveSession;
+          
+          // Cache the results
+          setCache(cacheKey, sessions, CACHE_CONFIG.SESSION_CACHE_TTL);
+        }
 
         setState(prev => ({
           ...prev,
@@ -79,6 +163,8 @@ export const useSupabaseMessageStore = (userId?: string) => {
             hasActiveSession: !!activeSession,
           },
         }));
+
+        lastFetchTime.current = Date.now();
       } catch (error) {
         console.error('Error initializing message store:', error);
         setState(prev => ({ 
@@ -89,42 +175,69 @@ export const useSupabaseMessageStore = (userId?: string) => {
       }
     };
 
-    initializeStore();
+    // Throttle initialization to prevent rapid re-fetches
+    if (fetchThrottle.current) {
+      clearTimeout(fetchThrottle.current);
+    }
+
+    fetchThrottle.current = setTimeout(() => {
+      const timeSinceLastFetch = Date.now() - lastFetchTime.current;
+      if (timeSinceLastFetch > 1000) { // Minimum 1 second between fetches
+        initializeStore();
+      }
+    }, 100);
+
+    return () => {
+      if (fetchThrottle.current) {
+        clearTimeout(fetchThrottle.current);
+      }
+    };
   }, [userId]);
 
-  // Get all sessions for a user
+  // Get all sessions for a user with optimized queries
   const getSessions = useCallback(async (userId: string): Promise<ChatSessionWithMessages[]> => {
     try {
+      // First, get sessions with basic info only
       const { data: sessions, error: sessionsError } = await supabase
         .from('ai_chat_sessions')
         .select('*')
         .eq('user_id', userId)
-        .order('updated_at', { ascending: false });
+        .order('updated_at', { ascending: false })
+        .limit(CACHE_CONFIG.MAX_CACHE_SIZE); // Limit to prevent memory issues
 
       if (sessionsError) throw sessionsError;
 
-      // Load messages for each session
-      const sessionsWithMessages = await Promise.all(
-        sessions.map(async (session) => {
-          const { data: messages, error: messagesError } = await supabase
-            .from('ai_chat_messages')
-            .select('*')
-            .eq('session_id', session.id)
-            .order('created_at', { ascending: true });
+      if (sessions.length === 0) return [];
 
-          if (messagesError) throw messagesError;
+      // Get all messages for all sessions in a single query
+      const sessionIds = sessions.map(s => s.id);
+      const { data: allMessages, error: messagesError } = await supabase
+        .from('ai_chat_messages')
+        .select('*')
+        .in('session_id', sessionIds)
+        .order('created_at', { ascending: true });
 
-          return {
-            ...session,
-            messages: messages.map(msg => ({
-              id: msg.id,
-              content: msg.content,
-              isUser: msg.is_user,
-              timestamp: new Date(msg.created_at),
-            })),
-          };
-        })
-      );
+      if (messagesError) throw messagesError;
+
+      // Group messages by session ID for efficient processing
+      const messagesBySession = allMessages.reduce((acc, msg) => {
+        if (!acc[msg.session_id]) {
+          acc[msg.session_id] = [];
+        }
+        acc[msg.session_id].push({
+          id: msg.id,
+          content: msg.content,
+          isUser: msg.is_user,
+          timestamp: new Date(msg.created_at),
+        });
+        return acc;
+      }, {} as Record<string, Message[]>);
+
+      // Combine sessions with their messages
+      const sessionsWithMessages = sessions.map(session => ({
+        ...session,
+        messages: messagesBySession[session.id] || [],
+      }));
 
       return sessionsWithMessages;
     } catch (error) {

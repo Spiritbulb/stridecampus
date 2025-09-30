@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from '@/hooks/use-toast';
+import { usePageRefresh } from '@/hooks/usePageRefresh';
 import { getFiles } from '@/utils/r2';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { LibraryHeader } from '@/components/library/LibraryHeader';
@@ -164,9 +165,12 @@ export default function Library() {
     fetchFiles(page, false);
   }, [fetchFiles]);
 
-  const handleRefresh = useCallback(() => {
-    fetchFiles(pagination.page, false);
+  const handleRefresh = useCallback(async () => {
+    await fetchFiles(pagination.page, false);
   }, [fetchFiles, pagination.page]);
+
+  // Register refresh function for pull-to-refresh
+  usePageRefresh(handleRefresh);
 
   const handleUploadClick = useCallback(() => {
     router.push('/library/upload');

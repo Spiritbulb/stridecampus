@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/hooks/use-toast';
+import { usePageRefresh } from '@/hooks/usePageRefresh';
 import { getUserFiles } from '@/utils/r2';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { LibraryHeader } from '@/components/library/LibraryHeader';
@@ -218,13 +219,16 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user }) => {
     fetchUserFiles(page, false);
   }, [fetchUserFiles]);
 
-  const handleRefresh = useCallback(() => {
-    fetchUserFiles(pagination.page, false);
+  const handleRefresh = useCallback(async () => {
+    await fetchUserFiles(pagination.page, false);
     toast({
       title: 'Refreshed',
       description: 'Your library has been updated',
     });
   }, [fetchUserFiles, pagination.page]);
+
+  // Register refresh function for pull-to-refresh
+  usePageRefresh(handleRefresh);
 
   const handleUploadClick = useCallback(() => {
     router.push('/library/upload');

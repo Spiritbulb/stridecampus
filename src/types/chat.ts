@@ -1,3 +1,15 @@
+export interface TypingUser {
+  userId: string;
+  username: string;
+  timestamp: number;
+}
+
+export interface OnlineUser {
+  userId: string;
+  username: string;
+  lastSeen: string;
+}
+
 export interface User {
   id: string;
   username: string;
@@ -53,6 +65,7 @@ export interface ChatHeaderProps {
   onBackToChats: () => void;
   onViewProfile: (username: string) => void;
   isMobile?: boolean;
+  onlineUsers?: OnlineUser[];
 }
 
 export interface MessageListProps {
@@ -60,6 +73,7 @@ export interface MessageListProps {
   currentUserId: string;
   loading: boolean;
   messagesEndRef: React.RefObject<any>;
+  typingUsers?: TypingUser[];
 }
 
 export interface MessageInputProps {

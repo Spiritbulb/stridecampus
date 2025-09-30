@@ -22,6 +22,7 @@ interface AccountSectionProps {
   pushPermission: string;
   notificationType: string;
   expoPushToken: string | null;
+  fcmToken?: string | null; // Add FCM token support
   pushLoading: boolean;
   onEmailNotificationsToggle: (enabled: boolean) => void;
   onMarketingEmailsToggle: (enabled: boolean) => void;
@@ -37,6 +38,7 @@ export function AccountSection({
   pushPermission,
   notificationType,
   expoPushToken,
+  fcmToken, // Add FCM token parameter
   pushLoading,
   onEmailNotificationsToggle,
   onMarketingEmailsToggle,
@@ -134,16 +136,20 @@ export function AccountSection({
           <div className="border rounded-lg p-4 bg-gray-50">
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-medium text-sm">Push Notification Status</h4>
-              <Badge variant={pushPermission === 'granted' && expoPushToken ? 'default' : 'secondary'}>
-                {pushPermission === 'granted' && expoPushToken ? 'Connected' : 'Not Connected'}
+              <Badge variant={pushPermission === 'granted' && (expoPushToken || fcmToken) ? 'default' : 'secondary'}>
+                {pushPermission === 'granted' && (expoPushToken || fcmToken) ? 'Connected' : 'Not Connected'}
               </Badge>
             </div>
             
-            {pushPermission === 'granted' && expoPushToken ? (
+            {pushPermission === 'granted' && (expoPushToken || fcmToken) ? (
               <div className="space-y-2">
                 <p className="text-sm text-gray-600">
-                  ✅ Connected to Expo Push Service
+                  ✅ Connected to {fcmToken ? 'FCM' : 'Expo'} Push Service
                 </p>
+                <div className="text-xs text-gray-500">
+                  <p>Token Type: {fcmToken ? 'FCM (Firebase Cloud Messaging)' : 'Expo Push Token'}</p>
+                  <p>Token: {(expoPushToken || fcmToken)?.substring(0, 20)}...</p>
+                </div>
                 <Button
                   onClick={onSendTestNotification}
                   size="sm"

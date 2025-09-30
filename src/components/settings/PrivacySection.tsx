@@ -23,6 +23,7 @@ interface PrivacySectionProps {
   pushSupported: boolean;
   pushPermission: string;
   expoPushToken: string | null;
+  fcmToken?: string | null; // Add FCM token support
   loading: boolean;
   onDeleteAccount: () => void;
 }
@@ -33,6 +34,7 @@ export function PrivacySection({
   pushSupported,
   pushPermission,
   expoPushToken,
+  fcmToken, // Add FCM token parameter
   loading,
   onDeleteAccount
 }: PrivacySectionProps) {

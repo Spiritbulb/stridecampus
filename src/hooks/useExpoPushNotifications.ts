@@ -6,6 +6,7 @@ interface PushNotificationState {
   isSupported: boolean;
   permission: 'default' | 'granted' | 'denied';
   expoPushToken: string | null;
+  fcmToken: string | null;
   isLoading: boolean;
 }
 
@@ -13,6 +14,7 @@ interface UseExpoPushNotificationsReturn extends PushNotificationState {
   requestPermission: () => Promise<boolean>;
   updatePushToken: (userId: string) => Promise<void>;
   sendTestNotification: () => Promise<void>;
+  syncTokenWhenUserLogsIn: (userId: string) => Promise<void>;
 }
 
 export function useExpoPushNotifications(): UseExpoPushNotificationsReturn {
@@ -20,6 +22,7 @@ export function useExpoPushNotifications(): UseExpoPushNotificationsReturn {
     isSupported: false,
     permission: 'default',
     expoPushToken: null,
+    fcmToken: null,
     isLoading: false,
   });
 
@@ -33,15 +36,70 @@ export function useExpoPushNotifications(): UseExpoPushNotificationsReturn {
     const handleMessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
+        console.log('📨 Received message from native app:', data);
         
         switch (data.type) {
-          case 'EXPO_PUSH_TOKEN':
+          case 'APP_READY':
+            console.log('📱 Native app is ready with data:', data);
             setState(prev => ({
               ...prev,
-              expoPushToken: data.token,
+              expoPushToken: data.expoPushToken || data.fcmToken, // Support both token types
+              fcmToken: data.fcmToken || data.expoPushToken, // Support both token types
+              permission: data.notificationPermission,
+              isSupported: true,
+              isLoading: false,
+            }));
+            
+            // If we have a token, automatically update it in the database
+            if (data.expoPushToken || data.fcmToken) {
+              console.log('🔄 Auto-updating push token from APP_READY');
+              // We'll update this when we have a user ID
+            }
+            break;
+            
+          case 'EXPO_PUSH_TOKEN':
+          case 'FCM_TOKEN':
+            console.log('📱 Received push token:', data.token ? 'Token available' : 'No token');
+            setState(prev => ({
+              ...prev,
+              expoPushToken: data.token, // Store in expoPushToken for compatibility
+              fcmToken: data.token, // Also store as FCM token
+              permission: data.token ? 'granted' : prev.permission,
+              isSupported: true,
+              isLoading: false,
+            }));
+            
+            // If we have a token and user ID, automatically sync to database
+            if (data.token && data.userId) {
+              console.log('🔄 Auto-syncing FCM token with user ID:', data.userId);
+              // Use the syncTokenWhenUserLogsIn function
+              setTimeout(() => {
+                syncTokenWhenUserLogsIn(data.userId).catch(error => {
+                  console.error('❌ Auto-sync failed:', error);
+                });
+              }, 100);
+            } else if (data.token) {
+              console.log('🔄 Auto-updating push token from', data.type);
+              // We'll update this when we have a user ID
+            }
+            break;
+            
+          case 'TOKEN_REFRESHED':
+          case 'PURE_FCM_TOKEN_REFRESHED':
+            console.log('🔄 Token was refreshed by native app:', data.token ? 'New token available' : 'No token');
+            setState(prev => ({
+              ...prev,
+              expoPushToken: data.token, // Store in expoPushToken for compatibility
+              fcmToken: data.token, // Also store as FCM token
               permission: data.token ? 'granted' : prev.permission,
               isSupported: true,
             }));
+            
+            // If we have a token, automatically update it in the database
+            if (data.token) {
+              console.log('🔄 Auto-updating refreshed push token');
+              // We'll update this when we have a user ID
+            }
             break;
             
           case 'PERMISSION_STATUS':
@@ -53,7 +111,7 @@ export function useExpoPushNotifications(): UseExpoPushNotificationsReturn {
                 setTimeout(() => {
                   if ((window as any).ReactNativeWebView) {
                     (window as any).ReactNativeWebView.postMessage(JSON.stringify({
-                      type: 'REQUEST_PUSH_TOKEN'
+                      type: 'REQUEST_PUSH_TOKEN' // Mobile app handles both FCM and Expo
                     }));
                   }
                 }, 100);
@@ -68,6 +126,7 @@ export function useExpoPushNotifications(): UseExpoPushNotificationsReturn {
             break;
             
           case 'NOTIFICATION_PERMISSION_DENIED':
+          case 'FCM_PERMISSION_DENIED':
             setState(prev => ({
               ...prev,
               permission: 'denied',
@@ -85,6 +144,27 @@ export function useExpoPushNotifications(): UseExpoPushNotificationsReturn {
             // Handle navigation from notifications
             if (data.url) {
               window.location.href = data.url;
+            }
+            break;
+            
+          case 'PURE_FCM_NOTIFICATION_RECEIVED':
+          case 'FCM_NOTIFICATION_RECEIVED':
+            console.log('🔔 FCM notification received in web app:', data.notification);
+            // Handle FCM notification in web app
+            break;
+            
+          case 'PURE_FCM_DATABASE_NOTIFICATION_RECEIVED':
+          case 'FCM_DATABASE_NOTIFICATION_RECEIVED':
+            console.log('🔔 FCM database notification received in web app:', data.notification);
+            // Handle FCM database notification in web app
+            break;
+            
+          case 'FCM_TOKEN_SYNC_COMPLETED':
+            console.log('🔄 FCM token sync completed:', data.success ? 'Success' : 'Failed');
+            if (data.success) {
+              console.log('✅ FCM token synced successfully');
+            } else {
+              console.error('❌ FCM token sync failed:', data.error);
             }
             break;
             
@@ -149,10 +229,10 @@ export function useExpoPushNotifications(): UseExpoPushNotificationsReturn {
     setState(prev => ({ ...prev, isLoading: true }));
 
     try {
-      // Request permission from the native app
+      // Request permission from the native app (supports both FCM and Expo)
       if ((window as any).ReactNativeWebView) {
         (window as any).ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'REQUEST_NOTIFICATION_PERMISSION'
+          type: 'REQUEST_NOTIFICATION_PERMISSION' // Mobile app handles both FCM and Expo
         }));
       }
 
@@ -185,35 +265,45 @@ export function useExpoPushNotifications(): UseExpoPushNotificationsReturn {
       setState(prev => ({ ...prev, isLoading: false }));
       return false;
     }
-  }, [isInExpoWebView, state.permission, state.expoPushToken]);
+  }, [isInExpoWebView, state.permission, state.expoPushToken, state.fcmToken]);
 
   const updatePushToken = useCallback(async (userId: string): Promise<void> => {
-    if (!state.expoPushToken) {
+    const token = state.expoPushToken || state.fcmToken; // Use either token type
+    if (!token) {
       console.warn('No push token available');
       return;
     }
 
     try {
-      const { error } = await supabase
+      console.log('🔄 Updating push token in database for user:', userId);
+      console.log('📱 Token being updated:', token);
+      
+      const { data, error } = await supabase
         .from('users')
         .update({ 
-          expo_push_token: state.expoPushToken,
+          expo_push_token: token, // Store in expo_push_token column for compatibility
           push_notifications: true,
           updated_at: new Date().toISOString()
         })
-        .eq('id', userId);
+        .eq('id', userId)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error updating push token:', error);
+        throw error;
+      }
 
-      console.log('Push token updated successfully');
+      console.log('✅ Push token updated successfully in database');
+      console.log('📊 Updated user data:', data);
     } catch (error) {
-      console.error('Error updating push token:', error);
+      console.error('❌ Error updating push token:', error);
       throw error;
     }
-  }, [state.expoPushToken]);
+  }, [state.expoPushToken, state.fcmToken]);
 
   const sendTestNotification = useCallback(async (): Promise<void> => {
-    if (!state.expoPushToken) {
+    const token = state.expoPushToken || state.fcmToken; // Use either token type
+    if (!token) {
       toast({
         title: "Error",
         description: "No push token available. Please enable notifications first.",
@@ -251,13 +341,71 @@ export function useExpoPushNotifications(): UseExpoPushNotificationsReturn {
         variant: "destructive",
       });
     }
-  }, [state.expoPushToken]);
+  }, [state.expoPushToken, state.fcmToken]);
+
+  // Critical function to sync token when user logs in
+  const syncTokenWhenUserLogsIn = useCallback(async (userId: string): Promise<void> => {
+    const token = state.expoPushToken || state.fcmToken;
+    
+    if (!token) {
+      console.log('⚠️ No token available for sync when user logs in');
+      return;
+    }
+
+    try {
+      console.log('🔄 User logged in, syncing FCM token to database...');
+      console.log('👤 User ID:', userId);
+      console.log('📱 Token to sync:', token);
+      
+      const { data, error } = await supabase
+        .from('users')
+        .update({ 
+          expo_push_token: token,
+          push_notifications: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId)
+        .select();
+
+      if (error) {
+        console.error('❌ Error syncing token when user logs in:', error);
+        console.error('❌ Error details:', JSON.stringify(error, null, 2));
+        throw error;
+      }
+
+      console.log('✅ FCM token synced successfully when user logged in');
+      console.log('📊 Updated user data:', data);
+      
+      // Notify mobile app that sync was successful
+      if ((window as any).ReactNativeWebView) {
+        (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'FCM_TOKEN_SYNC_COMPLETED',
+          success: true,
+          token: token,
+          userId: userId
+        }));
+      }
+    } catch (error) {
+      console.error('❌ Error in syncTokenWhenUserLogsIn:', error);
+      
+      // Notify mobile app that sync failed
+      if ((window as any).ReactNativeWebView) {
+        (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'FCM_TOKEN_SYNC_COMPLETED',
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+          userId: userId
+        }));
+      }
+    }
+  }, [state.expoPushToken, state.fcmToken]);
 
   return {
     ...state,
     requestPermission,
     updatePushToken,
     sendTestNotification,
+    syncTokenWhenUserLogsIn,
   };
 }
 

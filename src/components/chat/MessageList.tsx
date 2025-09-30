@@ -1,11 +1,13 @@
 import React, { memo } from 'react';
 import { MessageListProps } from '@/types/chat';
+import TypingIndicator from './TypingIndicator';
 
 const MessageList: React.FC<MessageListProps> = memo(({
   messages,
   currentUserId,
   loading,
-  messagesEndRef
+  messagesEndRef,
+  typingUsers = []
 }) => {
   if (loading) {
     return (
@@ -58,6 +60,7 @@ const MessageList: React.FC<MessageListProps> = memo(({
           </div>
         </div>
       ))}
+      <TypingIndicator typingUsers={typingUsers} />
       <div ref={messagesEndRef as React.RefObject<HTMLDivElement>} />
     </div>
   );

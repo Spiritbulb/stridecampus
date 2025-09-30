@@ -1,0 +1,29 @@
+{
+  "name": "stride-notification-processor",
+  "version": "1.0.0",
+  "description": "Notification queue processor for Stride Campus Expo push notifications",
+  "main": "notification-processor.js",
+  "scripts": {
+    "start": "node notification-processor.js",
+    "dev": "nodemon notification-processor.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": [
+    "expo",
+    "push-notifications",
+    "supabase",
+    "notifications"
+  ],
+  "author": "Stride Campus",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

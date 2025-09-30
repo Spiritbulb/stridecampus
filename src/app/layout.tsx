@@ -4,6 +4,7 @@ import './globals.css'
 import 'katex/dist/katex.min.css';
 import { AppProvider } from '@/contexts/AppContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { RefreshProvider } from '@/contexts/RefreshContext'
 import { AuthAwareLayout } from './AuthAwareLayout';
 import type { Metadata } from 'next'
 import { PWAProvider } from '@/contexts/PWAProvider'
@@ -116,9 +117,11 @@ export default function RootLayout({
         <PWAProvider />
         <ThemeProvider>
           <AppProvider>
-            <AuthAwareLayout>
-              {children}
-            </AuthAwareLayout>
+            <RefreshProvider>
+              <AuthAwareLayout>
+                {children}
+              </AuthAwareLayout>
+            </RefreshProvider>
             <Toaster />
           </AppProvider>
         </ThemeProvider>

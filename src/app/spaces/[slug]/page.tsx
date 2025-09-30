@@ -4,8 +4,9 @@ import { useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { User, Space, Post } from '@/utils/supabaseClient';
 import { useFeedData } from '@/hooks/useFeedData';
-import PostCard from '@/components/feed/main/PostCard'; // Assuming you have a PostCard component
 import { usePostActions } from '@/hooks/usePostActions';
+import { usePageRefresh } from '@/hooks/usePageRefresh';
+import PostCard from '@/components/feed/main/PostCard'; // Assuming you have a PostCard component
 import { useMemberCounts } from '@/components/feed/main/deps/sidebar';
 import { useApp } from '@/contexts/AppContext';
 import SpaceManagement from '@/components/spaces/SpaceManagement';
@@ -28,10 +29,18 @@ export default function SpacePage() {
   // Find the current space details
   const currentSpace = spaces.find(space => space.id === slug);
   
-    const { handleVote, handleShare, joinSpace } = usePostActions(user, refetch);
-    const selectPost = useCallback((post: Post | null) => {
-        setSelectedPost(post);
-      }, []);
+  const { handleVote, handleShare, joinSpace } = usePostActions(user, refetch);
+  const selectPost = useCallback((post: Post | null) => {
+    setSelectedPost(post);
+  }, []);
+
+  // Refresh function for pull-to-refresh
+  const handleRefresh = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
+
+  // Register refresh function for pull-to-refresh
+  usePageRefresh(handleRefresh);
   
   const handleCreateSpace = () => {
     setShowCreateModal(true);

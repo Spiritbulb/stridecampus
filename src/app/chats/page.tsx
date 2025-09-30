@@ -1,10 +1,11 @@
 'use client';
-import { useEffect, useMemo, Suspense } from 'react';
+import { useEffect, useMemo, Suspense, useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useSearchParams } from 'next/navigation';
 import { useViewport } from '@/hooks/useViewport';
 import { useUserSearch } from '@/hooks/useUserSearch';
 import { useChatManagement } from '@/hooks/useChatManagement';
+import { usePageRefresh } from '@/hooks/usePageRefresh';
 import { supabase } from '@/utils/supabaseClient';
 
 // Components
@@ -13,6 +14,7 @@ import MessageList from '@/components/chat/MessageList';
 import MessageInput from '@/components/chat/MessageInput';
 import UserSearchScreen from '@/components/chat/UserSearchScreen';
 import ChatsList from '@/components/chat/ChatsList';
+import RealtimeDebugger from '@/components/chat/RealtimeDebugger';
 
 interface PageProps {
   params?: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -51,6 +53,7 @@ const ChatPageContent: React.FC = () => {
     handleStartNewChat,
     handleViewProfile,
     initializeChats,
+    handleMessageInputChange,
     setError
   } = useChatManagement({
     currentUserId: user?.id || '',
@@ -59,6 +62,16 @@ const ChatPageContent: React.FC = () => {
 
   // Get username from URL params if available
   const urlUsername = useMemo(() => searchParams?.get('username'), [searchParams]);
+
+  // Refresh function for pull-to-refresh
+  const handleRefresh = useCallback(async () => {
+    if (user && isMounted) {
+      await initializeChats();
+    }
+  }, [user, isMounted, initializeChats]);
+
+  // Register refresh function for pull-to-refresh
+  usePageRefresh(handleRefresh);
 
   // Initialize chats when user is available
   useEffect(() => {
@@ -206,6 +219,9 @@ const ChatPageContent: React.FC = () => {
 
   return (
     <div className="flex h-[90vh] bg-gray-50" role="main" aria-label="Chat application">
+      {/* Debug Component - Remove in production */}
+      <RealtimeDebugger />
+      
       {/* Error Display */}
       {ErrorDisplay}
       
@@ -274,7 +290,7 @@ const ChatPageContent: React.FC = () => {
                 {/* Input Area - Fixed above mobile footer */}
                 <MessageInput
                   newMessage={newMessage}
-                  onMessageChange={setNewMessage}
+                  onMessageChange={handleMessageInputChange}
                   onSendMessage={handleSendMessage}
                   disabled={loading}
                 />
@@ -332,7 +348,7 @@ const ChatPageContent: React.FC = () => {
               {/* Input Area - Fixed above mobile footer */}
               <MessageInput
                 newMessage={newMessage}
-                onMessageChange={setNewMessage}
+                onMessageChange={handleMessageInputChange}
                 onSendMessage={handleSendMessage}
                 disabled={loading}
               />

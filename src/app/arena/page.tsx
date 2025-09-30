@@ -3,6 +3,7 @@ import React, { Suspense, useCallback, useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
+import { usePageRefresh } from '@/hooks/usePageRefresh';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/utils/supabaseClient';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
@@ -49,6 +50,19 @@ function IndexContent() {
   useEffect(() => {
     checkAuthState();
   }, [checkAuthState]);
+
+  // Refresh function for pull-to-refresh
+  const handleRefresh = useCallback(async () => {
+    if (userId) {
+      await Promise.all([
+        refetchTransactions(),
+        // Add other refresh functions as needed
+      ]);
+    }
+  }, [userId, refetchTransactions]);
+
+  // Register refresh function for pull-to-refresh
+  usePageRefresh(handleRefresh);
 
   // Check if user needs email verification (using context state)
   useEffect(() => {

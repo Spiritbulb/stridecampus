@@ -8,14 +8,25 @@ import AppSidebar from '@/components/sidebar/AppSidebar';
 import NoAuthNavbar from '@/components/layout/NoAuthNavbar';
 import NoAuthFooter from '@/components/layout/NoAuthFooter';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { useRefresh } from '@/contexts/RefreshContext';
+import { usePathname } from 'next/navigation';
+import { useCallback } from 'react';
 
 interface AuthAwareLayoutProps {
   children: React.ReactNode;
-  onRefresh?: () => Promise<void>; // Callback to handle content refresh
 }
 
-export function AuthAwareLayout({ children, onRefresh }: AuthAwareLayoutProps) {
+export function AuthAwareLayout({ children }: AuthAwareLayoutProps) {
   const { isAuthenticated } = useApp();
+  const { getRefreshFunction } = useRefresh();
+  const pathname = usePathname();
+  
+  const handleRefresh = useCallback(async () => {
+    const refreshFn = getRefreshFunction(pathname);
+    if (refreshFn) {
+      await refreshFn();
+    }
+  }, [getRefreshFunction, pathname]);
   
   const {
     pullDistance,
@@ -24,7 +35,7 @@ export function AuthAwareLayout({ children, onRefresh }: AuthAwareLayoutProps) {
     containerRef,
     touchHandlers
   } = usePullToRefresh({
-    onRefresh,
+    onRefresh: handleRefresh,
     threshold: 80, // Minimum pull distance to trigger refresh
     maxPullDistance: 120 // Maximum pull distance
   });

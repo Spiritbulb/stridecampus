@@ -1,66 +1,29 @@
-// hooks/useChat.ts
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/utils/supabaseClient';
-import { NotificationService } from '@/utils/notificationService';
+import { Chat, Message, ChatParticipant } from '@/types/chat';
 
-export interface ChatParticipant {
-  user_id: string;
-  users: {
-    id: string;
-    full_name: string;
-    avatar_url: string;
-    username: string;
-  };
+interface UseSimpleRealtimeChatProps {
+  currentUserId: string;
+  isMobile: boolean;
 }
 
-export interface Chat {
-  id: string;
-  created_at: string;
-  updated_at: string;
-  last_message: string;
-  last_message_at: string;
-  participants: ChatParticipant[];
-  unread_count?: number;
-}
-
-export interface MessageSender {
-  id: string;
-  full_name: string;
-  avatar_url: string;
-  username: string;
-}
-
-export interface Message {
-  id: string;
-  chat_id: string;
-  sender_id: string;
-  message: string;
-  message_type: string;
-  created_at: string;
-  read_by_receiver: boolean;
-  sender: MessageSender;
-}
-
-export interface User {
-  id: string;
-  full_name: string;
-  avatar_url: string;
-  username: string;
-}
-
-export const useChat = () => {
+export const useSimpleRealtimeChat = ({ currentUserId, isMobile }: UseSimpleRealtimeChatProps) => {
   const { user } = useApp();
   const [chats, setChats] = useState<Chat[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   const activeChatRef = useRef<Chat | null>(null);
 
   // Fetch user's chats
-  const fetchChats = async () => {
+  const fetchChats = useCallback(async () => {
     if (!user) return;
 
+    console.log('🔍 Fetching chats for user:', user.id);
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -107,18 +70,27 @@ export const useChat = () => {
       }) || [];
 
       const chatsData = await Promise.all(chatPromises);
-      setChats(chatsData as Chat[]);
+      
+      // Sort chats by last_message_at (newest first)
+      const sortedChats = chatsData.sort((a, b) => 
+        new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+      );
+      
+      console.log('✅ Chats fetched:', sortedChats.length);
+      setChats(sortedChats as Chat[]);
     } catch (error) {
-      console.error('Error fetching chats:', error);
+      console.error('❌ Error fetching chats:', error);
+      setError('Failed to load chats');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   // Fetch messages for a chat
-  const fetchMessages = async (chatId: string) => {
+  const fetchMessages = useCallback(async (chatId: string) => {
     if (!user) return;
 
+    console.log('🔍 Fetching messages for chat:', chatId);
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -131,6 +103,7 @@ export const useChat = () => {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
+      console.log('✅ Messages fetched:', data?.length || 0);
       setMessages(data as Message[]);
 
       // Mark messages as read
@@ -141,16 +114,18 @@ export const useChat = () => {
         .neq('sender_id', user.id)
         .eq('read_by_receiver', false);
     } catch (error) {
-      console.error('Error fetching messages:', error);
+      console.error('❌ Error fetching messages:', error);
+      setError('Failed to load messages');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   // Send a message
-  const sendMessage = async (chatId: string, message: string) => {
+  const sendMessage = useCallback(async (chatId: string, message: string) => {
     if (!user) return;
 
+    console.log('📤 Sending message:', { chatId, message, userId: user.id });
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -170,6 +145,13 @@ export const useChat = () => {
 
       if (error) throw error;
 
+      console.log('✅ Message sent successfully:', data);
+
+      // Add message to current messages if it's for the active chat
+      if (activeChatRef.current && chatId === activeChatRef.current.id) {
+        setMessages(prev => [...prev, data as Message]);
+      }
+
       // Update chat's last message
       await supabase
         .from('chats')
@@ -179,61 +161,36 @@ export const useChat = () => {
         })
         .eq('id', chatId);
 
-      // Send push notification to other participants
-      try {
-        // Get chat participants
-        const { data: chatData } = await supabase
-          .from('chats')
-          .select(`
-            participants:chat_participants(user_id, users(id, full_name, expo_push_token, push_notifications))
-          `)
-          .eq('id', chatId)
-          .single();
+      // Update local chat state to move chat to top
+      setChats(prev => {
+        const updatedChats = prev.map(chat => 
+          chat.id === chatId 
+            ? { 
+                ...chat, 
+                last_message: message,
+                last_message_at: new Date().toISOString()
+              }
+            : chat
+        );
+        
+        // Sort by last_message_at to put newest chats at top
+        return updatedChats.sort((a, b) => 
+          new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+        );
+      });
 
-        if (chatData?.participants) {
-          // Find recipients (all participants except sender)
-          const recipients = chatData.participants
-            .filter((p: any) => p.user_id !== user.id)
-            .map((p: any) => p.users);
-
-          // Send notifications to recipients using the new notification service
-          for (const recipient of recipients) {
-            if (recipient?.push_notifications) {
-              const messagePreview = message.length > 50 ? message.substring(0, 50) + '...' : message;
-              const senderName = user.full_name || user.username || 'Someone';
-              
-              await NotificationService.sendMessageNotification(
-                recipient.id,
-                user.id,
-                senderName,
-                messagePreview
-              );
-            }
-          }
-        }
-      } catch (notificationError) {
-        // Don't fail the message send if notification fails
-        console.error('Error sending message notification:', notificationError);
-      }
-
-      // Add the new message to the messages state immediately
-      if (data) {
-        setMessages(prev => [...prev, data as Message]);
-      }
-
-      return data;
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('❌ Error sending message:', error);
       throw error;
     }
-  };
+  }, [user]);
 
   // Start a new chat
-  const startChat = async (otherUserId: string) => {
+  const startChat = useCallback(async (otherUserId: string) => {
     if (!user) return;
 
     try {
-      // Check if chat already exists by getting all chats for both users
+      // Check if chat already exists
       const { data: userChats } = await supabase
         .from('chat_participants')
         .select('chat_id')
@@ -281,62 +238,17 @@ export const useChat = () => {
       console.error('Error starting chat:', error);
       throw error;
     }
-  };
-
-  const fetchUsers = async (query: string) => {
-    try {
-        const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .ilike('username', `%${query}%`)
-
-        if (error) {
-            console.error('Error fetching users:', error);
-            return false;
-        }
-        
-        return data || [];
-    } catch (error) {
-        console.error('Error fetching users:', error);
-        return false;
-    }
-}
-
-  // Check if users follow each other
-  const checkMutualFollow = async (otherUserId: string) => {
-    if (!user) return false;
-
-    try {
-      const { data, error } = await supabase
-        .from('followers')
-        .select('follower_id, followed_id')
-        .or(`and(follower_id.eq.${user.id},followed_id.eq.${otherUserId}),and(follower_id.eq.${otherUserId},followed_id.eq.${user.id})`);
-
-      if (error) {
-        console.error('Error checking mutual follow:', error);
-        return false;
-      }
-
-      if (!data || data.length === 0) return false;
-
-      // Check if both follow each other
-      const userFollows = data.some(f => f.follower_id === user.id && f.followed_id === otherUserId);
-      const otherUserFollows = data.some(f => f.follower_id === otherUserId && f.followed_id === user.id);
-
-      return userFollows && otherUserFollows;
-    } catch (error) {
-      console.error('Error checking mutual follow:', error);
-      return false;
-    }
-  };
+  }, [user]);
 
   // Set up realtime subscriptions
   useEffect(() => {
     if (!user) return;
 
+    console.log('🔌 Setting up realtime subscriptions for user:', user.id);
+
     // Subscribe to new messages
-    const messageSubscription = supabase
-      .channel('messages')
+    const messageChannel = supabase
+      .channel('simple-messages')
       .on('postgres_changes', 
         { 
           event: 'INSERT', 
@@ -344,8 +256,8 @@ export const useChat = () => {
           table: 'messages' 
         }, 
         async (payload) => {
+          console.log('📨 Realtime message received:', payload);
           const newMessage = payload.new as any;
-          // console.log('Realtime message received:', newMessage);
           
           // Get sender info
           const { data: senderData } = await supabase
@@ -359,50 +271,86 @@ export const useChat = () => {
             sender: senderData
           } as Message;
 
-          // Always update chats list with new message
-          setChats(prev => prev.map(chat => 
-            chat.id === newMessage.chat_id 
-              ? { 
-                  ...chat, 
-                  last_message: newMessage.message,
-                  last_message_at: newMessage.created_at,
-                  unread_count: newMessage.sender_id !== user.id 
-                    ? (chat.unread_count || 0) + 1 
-                    : chat.unread_count
-                }
-              : chat
-          ));
+          console.log('📨 Message with sender:', messageWithSender);
 
-          // Only add to messages if it's for the current active chat and not from current user
+          // Update chats list with new message and move to top
+          setChats(prev => {
+            const updatedChats = prev.map(chat => 
+              chat.id === newMessage.chat_id 
+                ? { 
+                    ...chat, 
+                    last_message: newMessage.message,
+                    last_message_at: newMessage.created_at,
+                    unread_count: newMessage.sender_id !== user.id 
+                      ? (chat.unread_count || 0) + 1 
+                      : chat.unread_count
+                  }
+                : chat
+            );
+            
+            // Sort by last_message_at to put newest chats at top
+            return updatedChats.sort((a, b) => 
+              new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+            );
+          });
+
+          // Add to messages if it's for the current active chat and not from current user
           if (activeChatRef.current && newMessage.chat_id === activeChatRef.current.id && newMessage.sender_id !== user.id) {
-            // console.log('Adding message to active chat');
+            console.log('📨 Adding message to active chat');
             setMessages(prev => [...prev, messageWithSender]);
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Message subscription status:', status);
+        if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Realtime subscription failed. Check if realtime is enabled for messages table.');
+        }
+      });
 
     return () => {
-      messageSubscription.unsubscribe();
+      console.log('🔌 Cleaning up realtime subscriptions');
+      messageChannel.unsubscribe();
     };
-  }, [user]); // Removed chats dependency since we're using ref
+  }, [user]);
 
   // Update ref when activeChat changes
   useEffect(() => {
     activeChatRef.current = activeChat;
   }, [activeChat]);
 
+  // Initialize chats
+  const initializeChats = useCallback(async () => {
+    if (isInitialized) return;
+    
+    console.log('🚀 Initializing chats...');
+    setError(null);
+    try {
+      await fetchChats();
+      setIsInitialized(true);
+      console.log('✅ Chats initialized successfully');
+    } catch (error) {
+      console.error('❌ Error initializing chats:', error);
+      setError('Failed to load chats. Please refresh the page.');
+    }
+  }, [fetchChats, isInitialized]);
+
   return {
+    // State
     chats,
     messages,
     activeChat,
     loading,
+    isInitialized,
+    error,
+    
+    // Actions
     setActiveChat,
     fetchChats,
-    fetchUsers,
     fetchMessages,
     sendMessage,
     startChat,
-    checkMutualFollow
+    initializeChats,
+    setError
   };
 };

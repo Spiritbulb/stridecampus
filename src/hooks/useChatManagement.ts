@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useChat } from '@/hooks/useChat';
+import { useSimpleRealtimeChat } from '@/hooks/useSimpleRealtimeChat';
 import { User, ChatParticipant } from '@/types/chat';
 import { supabase } from '@/utils/supabaseClient';
 
@@ -16,18 +16,20 @@ export const useChatManagement = ({ currentUserId, isMobile }: UseChatManagement
     messages,
     activeChat,
     loading,
+    isInitialized,
+    error,
     setActiveChat,
     fetchChats,
     fetchMessages,
     sendMessage,
-    startChat
-  } = useChat();
+    startChat,
+    initializeChats,
+    setError
+  } = useSimpleRealtimeChat({ currentUserId, isMobile });
 
   const [newMessage, setNewMessage] = useState<string>('');
   const [showChatList, setShowChatList] = useState<boolean>(true);
   const [showUserSearch, setShowUserSearch] = useState<boolean>(false);
-  const [isInitialized, setIsInitialized] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -78,7 +80,6 @@ export const useChatManagement = ({ currentUserId, isMobile }: UseChatManagement
   const handleSendMessage = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newMessage.trim() || !activeChat) {
-      // console.log('Cannot send message:', { newMessage: newMessage.trim(), activeChat });
       return;
     }
 
@@ -87,15 +88,13 @@ export const useChatManagement = ({ currentUserId, isMobile }: UseChatManagement
     setError(null);
 
     try {
-      // console.log('Sending message to chat:', activeChat.id);
       await sendMessage(activeChat.id, messageToSend);
-      // console.log('Message sent successfully');
     } catch (error) {
       console.error('Failed to send message:', error);
       setError('Failed to send message. Please try again.');
       setNewMessage(messageToSend);
     }
-  }, [newMessage, activeChat, sendMessage]);
+  }, [newMessage, activeChat, sendMessage, setError]);
 
   const handleStartChat = useCallback(async (otherUser: User) => {
     setError(null);
@@ -167,18 +166,11 @@ export const useChatManagement = ({ currentUserId, isMobile }: UseChatManagement
     router.push(`/u/${username}`);
   }, [router]);
 
-  const initializeChats = useCallback(async () => {
-    if (isInitialized) return;
-    
-    setError(null);
-    try {
-      await fetchChats();
-      setIsInitialized(true);
-    } catch (error) {
-      console.error('Error initializing chats:', error);
-      setError('Failed to load chats. Please refresh the page.');
-    }
-  }, [fetchChats, isInitialized]);
+  // Handle typing events
+  const handleMessageInputChange = useCallback((value: string) => {
+    setNewMessage(value);
+    // Typing functionality removed for now to focus on core realtime
+  }, []);
 
   return {
     // State
@@ -205,6 +197,7 @@ export const useChatManagement = ({ currentUserId, isMobile }: UseChatManagement
     handleStartNewChat,
     handleViewProfile,
     initializeChats,
+    handleMessageInputChange,
     setError
   };
 };

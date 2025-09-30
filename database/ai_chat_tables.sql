@@ -1,5 +1,5 @@
 -- AI Chat Sessions and Messages Tables for Supabase
--- This replaces the JSON database implementation
+-- This replaces the JSON database implementation with performance optimizations
 
 -- Create AI chat sessions table
 CREATE TABLE IF NOT EXISTS ai_chat_sessions (
@@ -21,11 +21,24 @@ CREATE TABLE IF NOT EXISTS ai_chat_messages (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create indexes for better performance
+-- Performance-optimized indexes
 CREATE INDEX IF NOT EXISTS idx_ai_chat_sessions_user_id ON ai_chat_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_ai_chat_sessions_user_updated ON ai_chat_sessions(user_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ai_chat_sessions_active ON ai_chat_sessions(user_id, is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_ai_chat_sessions_message_count ON ai_chat_sessions(message_count);
+
 CREATE INDEX IF NOT EXISTS idx_ai_chat_messages_session_id ON ai_chat_messages(session_id);
-CREATE INDEX IF NOT EXISTS idx_ai_chat_messages_created_at ON ai_chat_messages(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_ai_chat_messages_session_created ON ai_chat_messages(session_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_ai_chat_messages_created_at ON ai_chat_messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_chat_messages_is_user ON ai_chat_messages(is_user);
+
+-- Composite indexes for common query patterns
+CREATE INDEX IF NOT EXISTS idx_ai_chat_sessions_user_active_updated ON ai_chat_sessions(user_id, is_active, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_chat_messages_session_user_created ON ai_chat_messages(session_id, is_user, created_at ASC);
+
+-- Partial indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_ai_chat_sessions_recent ON ai_chat_sessions(user_id, updated_at DESC) WHERE updated_at > NOW() - INTERVAL '30 days';
+CREATE INDEX IF NOT EXISTS idx_ai_chat_messages_recent ON ai_chat_messages(session_id, created_at DESC) WHERE created_at > NOW() - INTERVAL '7 days';
 
 -- Create updated_at trigger for ai_chat_sessions
 CREATE OR REPLACE FUNCTION update_ai_chat_sessions_updated_at()

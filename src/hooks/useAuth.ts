@@ -15,12 +15,16 @@ import {
 import { supabase, type User } from '@/utils/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import { isValidSchoolEmail, isUsernameAvailable } from '@/utils/auth';
+import { useExpoPushNotifications } from './useExpoPushNotifications';
 
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
+  
+  // Get notification hook for FCM token sync
+  const { syncTokenWhenUserLogsIn } = useExpoPushNotifications();
 
   // Initialize auth state
   useEffect(() => {
@@ -80,6 +84,13 @@ export function useAuth() {
         try {
           const userProfile = await fetchUserProfile(newSession.user.id);
           setUser(userProfile);
+          
+          // Sync FCM token when user logs in
+          console.log('🔄 User signed in, syncing FCM token...');
+          syncTokenWhenUserLogsIn(newSession.user.id).catch(error => {
+            console.error('Background FCM token sync failed:', error);
+          });
+          
           // Update login streak in background
           updateLoginStreak(newSession.user.id).catch(error => {
             console.error('Background login streak update failed:', error);
@@ -111,21 +122,35 @@ export function useAuth() {
       if (result.data?.user) {
         const userProfile = await fetchUserProfile(result.data.user.id);
         setUser(userProfile);
+        
+        // Sync FCM token when user signs up
+        console.log('🔄 User signed up, syncing FCM token...');
+        syncTokenWhenUserLogsIn(result.data.user.id).catch(error => {
+          console.error('Background FCM token sync failed:', error);
+        });
       }
       return result;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [syncTokenWhenUserLogsIn]);
 
   const wrappedSignIn = useCallback(async (email: string, password: string) => {
     setLoading(true);
     try {
-      return await signIn(email, password);
+      const result = await signIn(email, password);
+      if (result.data?.user) {
+        // Sync FCM token when user signs in
+        console.log('🔄 User signed in via wrappedSignIn, syncing FCM token...');
+        syncTokenWhenUserLogsIn(result.data.user.id).catch(error => {
+          console.error('Background FCM token sync failed:', error);
+        });
+      }
+      return result;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [syncTokenWhenUserLogsIn]);
 
   const wrappedSignOut = useCallback(async () => {
     setLoading(true);
