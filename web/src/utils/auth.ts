@@ -256,7 +256,7 @@ export async function getUserByUsername(username: string): Promise<User | null> 
   }
 }
 
-export async function signUp(email: string, password: string, username: string, referralCode?: string): Promise<{ data: any; error: any }> {
+export async function signUp(email: string, password: string, username: string, full_name: string, referralCode?: string): Promise<{ data: any; error: any }> {
   try {
     // Validate school email
     const emailValidation = isValidSchoolEmail(email);
@@ -298,6 +298,7 @@ export async function signUp(email: string, password: string, username: string, 
           email,
           school_email: email,
           school_domain: schoolDomain,
+          full_name: full_name,
           username: username.toLowerCase(),
           credits: 120, // Welcome bonus
           is_verified: false, // Let Supabase handle email verification
@@ -365,6 +366,7 @@ export async function signUp(email: string, password: string, username: string, 
         email,
         school_email: email,
         school_domain: schoolDomain,
+        full_name: full_name,
         username: username,
         credits: 120,
         is_verified: false, // Will be updated when email is verified

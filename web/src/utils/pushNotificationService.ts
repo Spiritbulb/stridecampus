@@ -141,7 +141,9 @@ class PushNotificationService {
       const result = await response.json();
       console.log('📱 Expo push response:', result);
 
+      //@ts-ignore
       if (result.data && result.data[0]) {
+        //@ts-ignore
         const pushResult = result.data[0];
         if (pushResult.status === 'ok') {
           console.log('✅ Push notification sent successfully:', pushResult.id);
@@ -227,7 +229,9 @@ class PushNotificationService {
 
       const result = await response.json();
 
+      //@ts-ignore
       if (result.data && Array.isArray(result.data)) {
+        //@ts-ignore
         return result.data.map((pushResult: any, index: number) => {
           if (pushResult.status === 'ok') {
             return { 

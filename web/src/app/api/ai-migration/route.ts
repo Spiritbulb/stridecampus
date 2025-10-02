@@ -4,7 +4,7 @@ import { supabase } from '@/utils/supabaseClient';
 
 export async function POST(request: NextRequest) {
   try {
-    const { action, userId } = await request.json();
+    const { action, userId }: { action?: string; userId?: string } = await request.json();
 
     if (!action) {
       return NextResponse.json(

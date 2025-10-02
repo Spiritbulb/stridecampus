@@ -34,7 +34,7 @@ function getDatabasePath(userId: string): string {
  */
 export async function POST(request: NextRequest) {
   try {
-    const { userId, data } = await request.json();
+    const { userId, data }: { userId?: string; data?: any } = await request.json();
 
     if (!userId || !data) {
       return NextResponse.json(
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const { userId } = await request.json();
+    const { userId }: { userId?: string } = await request.json();
 
     if (!userId) {
       return NextResponse.json(

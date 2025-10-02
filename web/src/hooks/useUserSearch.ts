@@ -70,6 +70,7 @@ export const useUserSearch = ({ currentUserId, debounceMs = 300 }: UseUserSearch
 
     setSearchLoading(true);
     
+    //@ts-ignore
     searchTimeoutRef.current = setTimeout(async () => {
       if (!isMountedRef.current) return;
       

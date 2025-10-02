@@ -42,6 +42,12 @@ export default function NoAuthNavbar() {
             <Link href="/contact" className="text-gray-700 hover:text-[#f23b36] transition-colors">
               Contact
             </Link>
+            <Link href="/donate" className="text-gray-700 hover:text-[#f23b36] transition-colors">
+              Donate
+            </Link>
+            <Link href="/legal" className="text-gray-700 hover:text-[#f23b36] transition-colors">
+              Legal
+            </Link>
             <div className="flex space-x-4">
               <Link href="/download" className="px-4 py-2 rounded-md bg-[#f23b36] text-white hover:bg-[#d32f2f] transition-colors">
                 Download
@@ -86,6 +92,12 @@ export default function NoAuthNavbar() {
             </Link>
             <Link href="/contact" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-[#f23b36] hover:bg-gray-50">
               Contact
+            </Link>
+            <Link href="/donate" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-[#f23b36] hover:bg-gray-50">
+              Donate
+            </Link>
+            <Link href="/legal" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-[#f23b36] hover:bg-gray-50">
+              Legal
             </Link>
             <div className="pt-4 pb-3 border-t border-gray-200">
               <div className="flex flex-col space-y-3 px-2">

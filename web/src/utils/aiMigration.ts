@@ -42,10 +42,12 @@ async function loadJsonDatabase(userId: string): Promise<JsonDatabase | null> {
     const data = await response.json();
     
     // Validate database structure
+    //@ts-ignore
     if (!data.sessions || !data.version || !data.userId) {
       throw new Error('Invalid JSON database structure');
     }
     
+    //@ts-ignore
     return data;
   } catch (error) {
     console.error('Error loading JSON database:', error);

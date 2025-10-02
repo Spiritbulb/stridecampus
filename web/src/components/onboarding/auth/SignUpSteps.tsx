@@ -5,7 +5,7 @@ import { FormInput } from './FormInput';
 
 interface SignUpStepsProps {
   step: number;
-  formData: { username: string; email: string; password: string };
+  formData: { username: string; email: string; password: string; full_name: string };
   validation: {
     username?: { valid: boolean; message: string };
     email?: { valid: boolean; message: string };
@@ -50,11 +50,23 @@ export const SignUpSteps: React.FC<SignUpStepsProps> = ({
               validation={validation.username}
               required
             />
+
+            <FormInput
+              type="text"
+              label="Enter your full name"
+              placeholder="Lana Del Rey"
+              value={formData.full_name}
+              onChange={(value) => onFieldChange('full_name', value)}
+              onFocus={() => onFieldFocus('full_name')}
+              onBlur={onFieldBlur}
+              focused={focusedField === 'full_name'}
+              required
+            />
             
             <button
               type="button"
               onClick={onNext}
-              disabled={!formData.username.trim() || (validation.username && !validation.username.valid)}
+              disabled={!formData.username.trim() || (validation.username && !validation.username.valid) || !formData.full_name.trim()}
               className="w-full py-4 px-6 rounded-2xl font-semibold text-lg text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-3 transform hover:scale-105 hover:shadow-lg group"
               style={{ backgroundColor: '#f23b36' }}
             >

@@ -13,7 +13,7 @@ import { SignInForm } from './auth/SignInForm';
 import { AuthErrorBoundary } from './auth/AuthErrorBoundary';
 
 interface AuthScreenProps {
-  onSignUp: (email: string, password: string, username: string, referralCode?: string) => Promise<void>;
+  onSignUp: (email: string, password: string, username: string, full_name: string, referralCode?: string) => Promise<void>;
   onSignIn: (email: string, password: string) => Promise<void>;
   onBack: () => void;
   user: any;
@@ -137,7 +137,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         setPendingVerificationEmail(formData.email);
         
         // Attempt sign up
-        await onSignUp(formData.email, formData.password, formData.username, referralCode);
+        await onSignUp(formData.email, formData.password, formData.username, formData.full_name, referralCode);
         
         // The auth state change listener will handle showing verification screen
         // But as a fallback, set it here too

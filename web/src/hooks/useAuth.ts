@@ -115,10 +115,10 @@ export function useAuth() {
     };
   }, [initialized]);
 
-  const wrappedSignUp = useCallback(async (email: string, password: string, username: string, referralCode?: string) => {
+  const wrappedSignUp = useCallback(async (email: string, password: string, username: string, full_name: string, referralCode?: string) => {
     setLoading(true);
     try {
-      const result = await signUp(email, password, username, referralCode);
+      const result = await signUp(email, password, username, full_name, referralCode);
       if (result.data?.user) {
         const userProfile = await fetchUserProfile(result.data.user.id);
         setUser(userProfile);

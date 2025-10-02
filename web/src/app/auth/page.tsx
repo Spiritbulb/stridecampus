@@ -33,10 +33,10 @@ function AuthPageContent() {
   }, [user, session, router]);
 
 
-  const handleSignUp = useCallback(async (email: string, password: string, username: string) => {
+  const handleSignUp = useCallback(async (email: string, password: string, username: string, full_name: string) => {
     setIsLoading(true);
     try {
-      const { error } = await signUp(email, password, username, referralCode || undefined);
+      const { error } = await signUp(email, password, username, full_name, referralCode || undefined);
       if (error) throw error;
 
       // Set verification state immediately

@@ -22,7 +22,7 @@ async function getRobustNotificationService() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body: { type?: string; userInfo?: any; [key: string]: any } = await request.json();
     const { type, userInfo, ...params } = body;
 
     console.log('📨 Robust push notification request:', { type, userId: userInfo?.id });

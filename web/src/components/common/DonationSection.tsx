@@ -32,12 +32,14 @@ export default function DonationSection({ variant = 'full', className = '' }: Do
             <Heart className="text-red-500" size={18} />
             <h3 className="font-semibold text-sm">Support Stride Campus</h3>
           </div>
+          <a href="https://stridecampus.com/donate" target="_blank" rel="noopener noreferrer">
           <p className="text-xs text-gray-600 mb-3">
             Help keep our platform free for all students
           </p>
+          </a>
         </div>
 
-        {/* MPesa Donation */}
+        {/* MPesa Donation 
         <div className="bg-gradient-to-r from-red-50 to-pink-50 p-3 rounded-lg border border-red-200">
           <div className="text-center">
             <Phone className="mx-auto text-[#f23b36] mb-2" size={20} />
@@ -52,7 +54,7 @@ export default function DonationSection({ variant = 'full', className = '' }: Do
               Copy Till Number
             </Button>
           </div>
-        </div>
+        </div>*/}
 
         {/* Social Links */}
         <div>

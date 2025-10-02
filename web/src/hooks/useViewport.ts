@@ -42,6 +42,7 @@ const debounce = <T extends (...args: any[]) => any>(
   let timeout: number;
   return (...args: Parameters<T>) => {
     clearTimeout(timeout);
+    //@ts-ignore
     timeout = setTimeout(() => func(...args), wait);
   };
 };

@@ -7,7 +7,7 @@ import { Send, FileText, Plus, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import CommentComponent from './CommentComponent';
 import ResourceSelector from './ResourceSelector';
-import { useApp } from '@/contexts/AppContext';
+import { useSafeApp } from '@/contexts/SafeAppContext';
 
 interface CommentSectionProps {
   postId: string;
@@ -17,7 +17,7 @@ interface CommentSectionProps {
 }
 
 export default function CommentSection({ postId, comments, isLoading, onCommentAdded }: CommentSectionProps) {
-  const { user } = useApp();
+  const { user } = useSafeApp();
   const [commentContent, setCommentContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedResources, setSelectedResources] = useState<LibraryFile[]>([]);

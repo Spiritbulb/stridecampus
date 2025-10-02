@@ -33,7 +33,7 @@ async function sendPWANotificationToUser(userId: string, notification: {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body: { type?: string; userInfo?: any; [key: string]: any } = await request.json();
     const { type, userInfo, ...params } = body;
 
     // Check admin authorization using user info from frontend

@@ -6,6 +6,7 @@ interface FormData {
   email: string;
   password: string;
   username: string;
+  full_name: string;
 }
 
 interface ValidationState {
@@ -18,6 +19,7 @@ export const useAuthForm = (isSignUp: boolean, step: number) => {
     email: '',
     password: '',
     username: '',
+    full_name: '',
   });
   
   const [validation, setValidation] = useState<ValidationState>({});
@@ -25,7 +27,7 @@ export const useAuthForm = (isSignUp: boolean, step: number) => {
 
   // Real-time username validation
   useEffect(() => {
-    if (isSignUp && step === 1 && formData.username) {
+    if (isSignUp && step === 1 && formData.username && formData.full_name) {
       const validateUsername = async () => {
         const result = await isUsernameAvailable(formData.username);
         setValidation(prev => ({
@@ -40,7 +42,7 @@ export const useAuthForm = (isSignUp: boolean, step: number) => {
       const timeoutId = setTimeout(validateUsername, 500);
       return () => clearTimeout(timeoutId);
     }
-  }, [formData.username, isSignUp, step]);
+  }, [formData.username, isSignUp, step, formData.full_name]);
 
   // Real-time email validation
   useEffect(() => {
@@ -61,7 +63,7 @@ export const useAuthForm = (isSignUp: boolean, step: number) => {
   }, [formData.email, isSignUp, step]);
 
   const resetForm = () => {
-    setFormData({ email: '', password: '', username: '' });
+    setFormData({ email: '', password: '', username: '', full_name: '' });
     setValidation({});
     setFocusedField(null);
   };
