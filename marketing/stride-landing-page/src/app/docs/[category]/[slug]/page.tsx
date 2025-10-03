@@ -1,10 +1,10 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { getMarkdownDocument, getAllMarkdownDocuments, getAllDocumentPaths } from '@/lib/markdown';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
-import { getContent, getDirectory } from '@/lib/github-content';
 
 interface DocPageProps {
   params: Promise<{
@@ -15,90 +15,24 @@ interface DocPageProps {
 
 // Generate static params at build time
 export async function generateStaticParams() {
-  const categories = await getDirectory('docs');
-  
-  const params = [];
-  
-  for (const category of categories) {
-    if (category.type === 'dir') {
-      const docs = await getDirectory(`docs/${category.name}`);
-      for (const doc of docs) {
-        if (doc.type === 'file' && doc.name.endsWith('.md')) {
-          params.push({
-            category: category.name,
-            slug: doc.name.replace('.md', ''),
-          });
-        }
-      }
-    }
-  }
-  
-  return params;
+  return getAllDocumentPaths('docs');
 }
 
+// Enable static generation
 export const dynamic = 'force-static';
-
-async function getDoc(category: string, slug: string) {
-  try {
-    const markdownContent = await getContent(`docs/${category}/${slug}`);
-    
-    if (!markdownContent) {
-      return null;
-    }
-
-    // Parse frontmatter and content
-    const matter = await import('gray-matter');
-    const { data: frontMatter, content } = matter.default(markdownContent);
-
-    return {
-      title: frontMatter.title || slug,
-      content,
-      frontMatter,
-      slug,
-      category,
-    };
-  } catch (error) {
-    console.error(`Failed to load doc: docs/${category}/${slug}.md`, error);
-    return null;
-  }
-}
-
-async function getAllDocs(category: string) {
-  try {
-    const docs = await getDirectory(`docs/${category}`);
-    
-    const docList = await Promise.all(
-      docs
-        .filter(doc => doc.type === 'file' && doc.name.endsWith('.md'))
-        .map(async (doc) => {
-          const slug = doc.name.replace('.md', '');
-          const docItem = await getDoc(category, slug);
-          return docItem;
-        })
-    );
-
-    return docList
-      .filter(Boolean)
-      .sort((a, b) => (a!.frontMatter.order || 0) - (b!.frontMatter.order || 0));
-  } catch (error) {
-    console.error(`Failed to get docs for category: ${category}`, error);
-    return [];
-  }
-}
 
 export default async function DocPage({ params }: DocPageProps) {
   const { category, slug } = await params;
   
-  // Try to load the markdown file from GitHub
-  const doc = await getDoc(category, slug);
+  const doc = getMarkdownDocument(`docs/${category}`, slug);
   
   if (!doc) {
     notFound();
   }
 
-  // Get all docs for navigation
-  const allDocs = await getAllDocs(category);
-  const currentIndex = allDocs.findIndex(d => d?.slug === slug);
+  // Get all documents in this category to determine navigation
+  const allDocs = getAllMarkdownDocuments(`docs/${category}`);
+  const currentIndex = allDocs.findIndex(d => d.slug === slug);
   const prevDoc = currentIndex > 0 ? allDocs[currentIndex - 1] : null;
   const nextDoc = currentIndex < allDocs.length - 1 ? allDocs[currentIndex + 1] : null;
 
@@ -122,7 +56,7 @@ export default async function DocPage({ params }: DocPageProps) {
           <div className="flex items-center text-sm text-gray-600">
             <span>Documentation</span>
             <span className="mx-2">•</span>
-            <span className="capitalize">{category.replace(/-/g, ' ')}</span>
+            <span className="capitalize">{category.replace('-', ' ')}</span>
           </div>
         </div>
 

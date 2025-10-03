@@ -142,62 +142,112 @@ import {
 export default function SupportPage() {
   const supportCategories = [
     {
-      id: 'getting-help',
-      title: 'Getting Help',
-      description: 'How to get support and find answers to your questions',
-      icon: <HelpCircle className="w-6 h-6" />,
-      color: 'bg-blue-500',
-      priority: 'medium',
+      id: 'auth-migration',
+      title: 'Authentication Migration',
+      description: 'Important information about our login system transition',
+      icon: <Key className="w-6 h-6" />,
+      color: 'bg-red-500',
+      priority: 'high',
       articles: [
-        { slug: 'getting-help', title: 'Getting Help', description: 'All the ways to get support and find answers' }
+        { slug: 'new-login-system', title: 'How to set up your account', description: 'New ways to log in to your account' },
+        { slug: 'password-reset', title: 'Password Reset Process', description: 'How to reset your password during migration' },
+        { slug: 'account-recovery', title: 'Account Recovery', description: 'What to do if you can\'t access your account' },
+        { slug: 'migration-faq', title: 'Migration FAQ', description: 'Frequently asked questions about the migration' }
       ]
     },
     {
       id: 'account-issues',
       title: 'Account Issues',
-      description: 'Problems with your account, login, or profile',
+      description: 'Problems with your account or profile',
       icon: <User className="w-6 h-6" />,
-      color: 'bg-red-500',
-      priority: 'high',
+      color: 'bg-blue-500',
+      priority: 'medium',
       articles: [
-        { slug: 'account-issues', title: 'Account Issues', description: 'Login problems, profile issues, and account security' }
+        { slug: 'login-problems', title: 'Login Problems', description: 'Troubleshooting login issues' },
+        { slug: 'profile-issues', title: 'Profile Issues', description: 'Problems with your profile or settings' },
+        { slug: 'verification-issues', title: 'Email Verification', description: 'Issues with email verification' },
+        { slug: 'account-suspension', title: 'Account Suspension', description: 'Understanding account suspensions' }
       ]
     },
     {
-      id: 'auth-migration',
-      title: 'Authentication Migration',
-      description: 'Important information about our login system transition',
-      icon: <Key className="w-6 h-6" />,
-      color: 'bg-orange-500',
+      id: 'technical-issues',
+      title: 'Technical Issues',
+      description: 'App performance and technical problems',
+      icon: <Settings className="w-6 h-6" />,
+      color: 'bg-green-500',
+      priority: 'medium',
+      articles: [
+        { slug: 'app-crashes', title: 'App Crashes', description: 'What to do when the app crashes' },
+        { slug: 'slow-performance', title: 'Slow Performance', description: 'Improving app performance' },
+        { slug: 'sync-issues', title: 'Sync Issues', description: 'Problems with data synchronization' },
+        { slug: 'notification-problems', title: 'Notification Problems', description: 'Issues with push notifications' }
+      ]
+    },
+    {
+      id: 'feature-help',
+      title: 'Feature Help',
+      description: 'How to use specific features',
+      icon: <HelpCircle className="w-6 h-6" />,
+      color: 'bg-purple-500',
+      priority: 'low',
+      articles: [
+        { slug: 'credit-system-help', title: 'Credit System Help', description: 'Understanding the credit system' },
+        { slug: 'poll-creation-help', title: 'Poll Creation Help', description: 'Creating effective polls' },
+        { slug: 'library-usage', title: 'Library Usage', description: 'Using the shared library effectively' },
+        { slug: 'ai-chat-help', title: 'AI Chat Help', description: 'Getting help with AI assistant' }
+      ]
+    },
+    {
+      id: 'mobile-support',
+      title: 'Mobile Support',
+      description: 'Mobile app specific issues',
+      icon: <Smartphone className="w-6 h-6" />,
+      color: 'bg-indigo-500',
+      priority: 'medium',
+      articles: [
+        { slug: 'mobile-installation', title: 'Mobile Installation', description: 'Installing and setting up the mobile app' },
+        { slug: 'mobile-notifications', title: 'Mobile Notifications', description: 'Managing notifications on mobile' },
+        { slug: 'mobile-sync', title: 'Mobile Sync Issues', description: 'Sync problems on mobile devices' },
+        { slug: 'mobile-performance', title: 'Mobile Performance', description: 'Optimizing mobile app performance' }
+      ]
+    },
+    {
+      id: 'privacy-security',
+      title: 'Privacy & Security',
+      description: 'Privacy concerns and security issues',
+      icon: <Shield className="w-6 h-6" />,
+      color: 'bg-yellow-500',
       priority: 'high',
       articles: [
-        { slug: 'new-login-system', title: 'New Login System', description: 'How to set up your account with the new system' },
-        { slug: 'password-reset', title: 'Password Reset', description: 'How to reset your password during migration' }
+        { slug: 'privacy-settings', title: 'Privacy Settings', description: 'Managing your privacy settings' },
+        { slug: 'data-security', title: 'Data Security', description: 'How we protect your data' },
+        { slug: 'report-abuse', title: 'Report Abuse', description: 'Reporting inappropriate content or behavior' },
+        { slug: 'account-security', title: 'Account Security', description: 'Keeping your account secure' }
       ]
     }
   ];
 
   const urgentIssues = [
     {
-      title: 'Getting Help',
-      description: 'Need assistance? Find all the ways to get support and answers.',
-      href: '/support/getting-help/getting-help',
-      icon: <HelpCircle className="w-5 h-5" />,
-      urgent: false
-    },
-    {
-      title: 'Account Issues',
-      description: 'Having trouble with your account? We can help you resolve login and profile issues.',
-      href: '/support/account-issues/account-issues',
-      icon: <User className="w-5 h-5" />,
-      urgent: false
-    },
-    {
       title: 'Authentication Migration',
       description: 'We\'re transitioning to a new login system. You\'ll need to reset your password.',
       href: '/support/auth-migration/new-login-system',
       icon: <AlertTriangle className="w-5 h-5" />,
       urgent: true
+    },
+    {
+      title: 'Account Access Issues',
+      description: 'Having trouble logging in? We can help you regain access.',
+      href: '/support/account-issues/login-problems',
+      icon: <Lock className="w-5 h-5" />,
+      urgent: false
+    },
+    {
+      title: 'Mobile App Problems',
+      description: 'Issues with the mobile app? Check our mobile support guides.',
+      href: '/support/mobile-support/mobile-installation',
+      icon: <Smartphone className="w-5 h-5" />,
+      urgent: false
     }
   ];
 
