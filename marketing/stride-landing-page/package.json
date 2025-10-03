@@ -3,10 +3,7 @@
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
-		"predev": "npm run generate:content",
 		"dev": "next dev",
-		"generate:content": "node scripts/generate-content-index.js",
-		"prebuild": "npm run generate:content",
 		"build": "next build",
 		"start": "next start",
 		"lint": "next lint",
