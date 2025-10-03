@@ -4,9 +4,19 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
+// Extend Window interface for React Native WebView
+declare global {
+  interface Window {
+    ReactNativeWebView?: {
+      postMessage: (message: string) => void;
+    };
+  }
+}
+
 export function InfoBanner() {
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [isInWebView, setIsInWebView] = useState(false);
 
   useEffect(() => {
     // Check if user has already dismissed the banner
@@ -14,6 +24,10 @@ export function InfoBanner() {
     if (!dismissed) {
       setIsVisible(true);
     }
+
+    // Detect if running inside React Native WebView
+    const userAgent = navigator.userAgent || '';
+    setIsInWebView(userAgent.includes('StrideCampusApp'));
   }, []);
 
   const handleClose = () => {
@@ -21,7 +35,23 @@ export function InfoBanner() {
     setTimeout(() => {
       setIsVisible(false);
       localStorage.setItem('login-flow-banner-dismissed', 'true');
-    }, 300); // Match animation duration
+    }, 300);
+  };
+
+  const handleLinkPress = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    const url = 'https://stridecampus.com/support/auth-migration/new-login-system';
+    
+    if (isInWebView && window.ReactNativeWebView) {
+      // Send message to React Native to open URL externally
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'OPEN_EXTERNAL_LINK',
+        url: url
+      }));
+    } else {
+      // Regular browser - open in new tab
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
   };
 
   if (!isVisible) return null;
@@ -52,7 +82,8 @@ export function InfoBanner() {
               <span className="font-medium">Important Update:</span> We're transitioning to a new login system. 
               You'll need to reset your password in a few days.{' '}
               <a
-                href="https://www.stridecampus.com/support/auth-migration/new-login-system"
+                href="https://stridecampus.com/support/auth-migration/new-login-system"
+                onClick={handleLinkPress}
                 className="underline hover:text-blue-700 font-medium"
               >
                 Learn more

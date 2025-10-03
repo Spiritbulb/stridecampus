@@ -36,7 +36,8 @@ const VALID_MESSAGE_TYPES = [
   'REQUEST_FCM_TOKEN',
   'REQUEST_PERMISSION_STATUS',
   'USER_ID_SET',
-  'AUTH_CALLBACK'
+  'AUTH_CALLBACK',
+  'OPEN_EXTERNAL_LINK'
 ] as const;
 
 type MessageType = typeof VALID_MESSAGE_TYPES[number];
@@ -335,6 +336,16 @@ export default function WebViewManager({
           }));
           break;
 
+        case 'OPEN_EXTERNAL_LINK':
+          console.log('🔗 Opening external link:', data.url);
+          if (data.url) {
+            Linking.openURL(data.url).catch(err => {
+              console.error('Failed to open URL:', err);
+              Alert.alert('Error', 'Unable to open link');
+            });
+          }
+        break;
+
         case 'USER_ID_SET':
           console.log('👤 User ID received from WebView:', data.userId);
           onUserIdChange(data.userId);
@@ -381,6 +392,30 @@ export default function WebViewManager({
     webViewRef.current?.injectJavaScript(appRefreshScript);
   }, [appRefreshScript]);
 
+  const onShouldStartLoadWithRequest = useCallback((request: any) => {
+    const { url } = request;
+    console.log('🔗 Navigation intercepted:', url);
+    
+    // Allow navigation within your app domain
+    if (url.startsWith(WEB_URL)) {
+      return true;
+    }
+    
+    // Handle auth callbacks
+    if (url.includes('auth/callback') || url.includes('code=')) {
+      return true;
+    }
+    
+    // For all other URLs (external links), open in browser
+    console.log('🌐 Opening external URL in browser:', url);
+    Linking.openURL(url).catch(err => {
+      console.error('Failed to open URL:', err);
+    });
+    
+    // Prevent WebView from loading the URL
+    return false;
+  }, []);
+
   return (
     <View style={styles.container}>
       {/* Only show loading spinner during initial load */}
@@ -402,6 +437,7 @@ export default function WebViewManager({
         sharedCookiesEnabled
         onNavigationStateChange={onNavigationStateChange}
         onLoadStart={onLoadStart}
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onLoadEnd={onLoadEnd}
         onLoadProgress={onLoadProgress}
         onError={onError}

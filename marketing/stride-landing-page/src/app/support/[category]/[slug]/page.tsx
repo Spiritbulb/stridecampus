@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, AlertTriangle, CheckCircle, Info } from 'lucide-react';
-import { getMarkdownDocument, getAllMarkdownDocuments } from '@/lib/markdown';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -13,18 +12,72 @@ interface SupportPageProps {
   }>;
 }
 
+// Generate static params at build time - just scan the file system once
+export async function generateStaticParams() {
+  const { glob } = await import('glob');
+  const files = await glob('src/content/support/**/*.md');
+  
+  return files.map(file => {
+    const pathParts = file.split('/');
+    const category = pathParts[pathParts.length - 2];
+    const slug = pathParts[pathParts.length - 1].replace('.md', '');
+    
+    return {
+      category,
+      slug,
+    };
+  });
+}
+
+export const dynamic = 'force-static';
+
+async function getSupportDoc(category: string, slug: string) {
+  try {
+    // Dynamic import - if the file exists, this will work
+    const doc = await import(`@/content/support/${category}/${slug}.md`);
+    return {
+      title: doc.frontmatter?.title || slug,
+      content: doc.default || doc.content || '',
+      frontMatter: doc.frontmatter || {},
+      slug,
+      category,
+    };
+  } catch (error) {
+    console.error(`Failed to load support doc: support/${category}/${slug}.md`);
+    return null;
+  }
+}
+
+async function getAllSupportDocs(category: string) {
+  const { glob } = await import('glob');
+  const files = await glob(`src/content/support/${category}/*.md`);
+  
+  const docs = await Promise.all(
+    files.map(async (file) => {
+      const slug = file.split('/').pop()!.replace('.md', '');
+      const doc = await getSupportDoc(category, slug);
+      return doc;
+    })
+  );
+  
+  return docs.filter(Boolean).sort((a, b) => 
+    (a?.frontMatter.order || 0) - (b?.frontMatter.order || 0)
+  );
+}
+
 export default async function SupportPage({ params }: SupportPageProps) {
   const { category, slug } = await params;
   
-  const support = getMarkdownDocument(`support/${category}`, slug);
+  // Try to load the markdown file directly
+  const support = await getSupportDoc(category, slug);
   
   if (!support) {
     notFound();
   }
 
-  // Get all documents in this category to determine navigation
-  const allDocs = getAllMarkdownDocuments(`support/${category}`);
-  const currentIndex = allDocs.findIndex(d => d.slug === slug);
+  // Get all docs for navigation
+  const allDocs = await getAllSupportDocs(category);
+  const currentIndex = allDocs.findIndex(d => d?.slug === slug);
   const prevDoc = currentIndex > 0 ? allDocs[currentIndex - 1] : null;
   const nextDoc = currentIndex < allDocs.length - 1 ? allDocs[currentIndex + 1] : null;
 

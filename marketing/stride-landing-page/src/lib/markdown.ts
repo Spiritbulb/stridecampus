@@ -1,8 +1,5 @@
-import fs from 'fs';
-import path from 'path';
-import matter from 'gray-matter';
-
-const contentDirectory = path.join(process.cwd(), 'src/content');
+// lib/markdown.ts
+const contentIndex = await import('./content-index.json');
 
 export interface MarkdownDocument {
   slug: string;
@@ -11,47 +8,45 @@ export interface MarkdownDocument {
   frontMatter: Record<string, any>;
 }
 
-export function getMarkdownDocument(category: string, slug: string): MarkdownDocument | null {
-  try {
-    const fullPath = path.join(contentDirectory, category, `${slug}.md`);
-    const fileContents = fs.readFileSync(fullPath, 'utf8');
-    const { data: frontMatter, content } = matter(fileContents);
-
-    return {
-      slug,
-      title: frontMatter.title || slug,
-      content, // Return raw markdown content
-      frontMatter
-    };
-  } catch (error) {
-    console.error(`Error reading markdown file: ${category}/${slug}.md`, error);
-    return null;
-  }
+interface ContentIndex {
+  documents: Array<{
+    baseCategory: string;
+    category: string;
+    slug: string;
+    title: string;
+    content: string;
+    frontMatter: Record<string, any>;
+  }>;
+  generatedAt: string;
 }
 
-export function getAllMarkdownDocuments(category: string): MarkdownDocument[] {
-  try {
-    const categoryPath = path.join(contentDirectory, category);
-    const files = fs.readdirSync(categoryPath);
+const index = contentIndex as ContentIndex;
+
+// Helper to find documents
+export function getMarkdownDocument(baseCategory: string, slug: string) {
+    const document = contentIndex.documents.find(
+      doc => doc.baseCategory === baseCategory && doc.slug === slug
+    );
     
-    return files
-      .filter(file => file.endsWith('.md'))
-      .map(file => {
-        const slug = file.replace('.md', '');
-        return getMarkdownDocument(category, slug);
-      })
-      .filter((doc): doc is MarkdownDocument => doc !== null);
-  } catch (error) {
-    console.error(`Error reading category: ${category}`, error);
-    return [];
+    if (!document) {
+      console.warn(`Document not found: ${baseCategory}/${slug}`);
+      return null;
+    }
+    
+    return document;
   }
-}
-
-export function getMarkdownCategories(): string[] {
-  try {
-    return fs.readdirSync(contentDirectory);
-  } catch (error) {
-    console.error('Error reading content directory', error);
-    return [];
+  
+  export function getAllMarkdownDocuments(baseCategory: string) {
+    return contentIndex.documents
+      .filter(doc => doc.baseCategory === baseCategory)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
-}
+  
+  export function getAllDocumentPaths(baseCategory: string) {
+    const documents = getAllMarkdownDocuments(baseCategory);
+    
+    return documents.map(doc => ({
+      category: doc.category,
+      slug: doc.slug,
+    }));
+  }

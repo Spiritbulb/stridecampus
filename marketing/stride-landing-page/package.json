@@ -3,7 +3,10 @@
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
+		"predev": "npm run generate:content",
 		"dev": "next dev",
+		"generate:content": "node scripts/generate-content-index.js",
+		"prebuild": "npm run generate:content",
 		"build": "next build",
 		"start": "next start",
 		"lint": "next lint",
@@ -16,6 +19,7 @@
 		"gray-matter": "^4.0.3",
 		"lucide-react": "^0.544.0",
 		"next": "15.4.6",
+		"octokit": "^5.0.3",
 		"react": "19.1.0",
 		"react-dom": "19.1.0",
 		"react-markdown": "^10.1.0",

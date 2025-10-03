@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { getMarkdownDocument, getAllMarkdownDocuments } from '@/lib/markdown';
+import { getMarkdownDocument, getAllMarkdownDocuments, getAllDocumentPaths } from '@/lib/markdown';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -12,6 +12,14 @@ interface DocPageProps {
     slug: string;
   }>;
 }
+
+// Generate static params at build time
+export async function generateStaticParams() {
+  return getAllDocumentPaths('docs');
+}
+
+// Enable static generation
+export const dynamic = 'force-static';
 
 export default async function DocPage({ params }: DocPageProps) {
   const { category, slug } = await params;
