@@ -33,7 +33,7 @@
 	 * Environment Variables
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
 	 */
-	"vars": { "GITHUB_TOKEN": "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" }
+	// "vars": { "GITHUB_TOKEN": "your-token-here" }
 	/**
 	 * Note: Use secrets to store sensitive data.
 	 * https://developers.cloudflare.com/workers/configuration/secrets/
