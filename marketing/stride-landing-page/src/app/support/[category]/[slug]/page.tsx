@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, AlertTriangle, CheckCircle, Info } from 'lucide-
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
+import { getContent, getDirectory } from '@/lib/github-content';
 
 interface SupportPageProps {
   params: Promise<{
@@ -12,63 +13,83 @@ interface SupportPageProps {
   }>;
 }
 
-// Generate static params at build time - just scan the file system once
+// Generate static params at build time
 export async function generateStaticParams() {
-  const { glob } = await import('glob');
-  const files = await glob('src/content/support/**/*.md');
+  const categories = await getDirectory('support');
   
-  return files.map(file => {
-    const pathParts = file.split('/');
-    const category = pathParts[pathParts.length - 2];
-    const slug = pathParts[pathParts.length - 1].replace('.md', '');
-    
-    return {
-      category,
-      slug,
-    };
-  });
+  const params = [];
+  
+  for (const category of categories) {
+    if (category.type === 'dir') {
+      const docs = await getDirectory(`support/${category.name}`);
+      for (const doc of docs) {
+        if (doc.type === 'file' && doc.name.endsWith('.md')) {
+          params.push({
+            category: category.name,
+            slug: doc.name.replace('.md', ''),
+          });
+        }
+      }
+    }
+  }
+  
+  return params;
 }
 
 export const dynamic = 'force-static';
 
 async function getSupportDoc(category: string, slug: string) {
   try {
-    // Dynamic import - if the file exists, this will work
-    const doc = await import(`@/content/support/${category}/${slug}.md`);
+    const markdownContent = await getContent(`support/${category}/${slug}`);
+    
+    if (!markdownContent) {
+      return null;
+    }
+
+    // Parse frontmatter and content
+    const matter = await import('gray-matter');
+    const { data: frontMatter, content } = matter.default(markdownContent);
+
     return {
-      title: doc.frontmatter?.title || slug,
-      content: doc.default || doc.content || '',
-      frontMatter: doc.frontmatter || {},
+      title: frontMatter.title || slug,
+      content,
+      frontMatter,
       slug,
       category,
     };
   } catch (error) {
-    console.error(`Failed to load support doc: support/${category}/${slug}.md`);
+    console.error(`Failed to load support doc: support/${category}/${slug}.md`, error);
     return null;
   }
 }
 
 async function getAllSupportDocs(category: string) {
-  const { glob } = await import('glob');
-  const files = await glob(`src/content/support/${category}/*.md`);
-  
-  const docs = await Promise.all(
-    files.map(async (file) => {
-      const slug = file.split('/').pop()!.replace('.md', '');
-      const doc = await getSupportDoc(category, slug);
-      return doc;
-    })
-  );
-  
-  return docs.filter(Boolean).sort((a, b) => 
-    (a?.frontMatter.order || 0) - (b?.frontMatter.order || 0)
-  );
+  try {
+    const docs = await getDirectory(`support/${category}`);
+    
+    const supportDocs = await Promise.all(
+      docs
+        .filter(doc => doc.type === 'file' && doc.name.endsWith('.md'))
+        .map(async (doc) => {
+          const slug = doc.name.replace('.md', '');
+          const supportDoc = await getSupportDoc(category, slug);
+          return supportDoc;
+        })
+    );
+
+    return supportDocs
+      .filter(Boolean)
+      .sort((a, b) => (a!.frontMatter.order || 0) - (b!.frontMatter.order || 0));
+  } catch (error) {
+    console.error(`Failed to get docs for category: ${category}`, error);
+    return [];
+  }
 }
 
 export default async function SupportPage({ params }: SupportPageProps) {
   const { category, slug } = await params;
   
-  // Try to load the markdown file directly
+  // Try to load the markdown file from GitHub
   const support = await getSupportDoc(category, slug);
   
   if (!support) {
@@ -135,7 +156,7 @@ export default async function SupportPage({ params }: SupportPageProps) {
           <div className="flex items-center text-sm text-gray-600">
             <span>Support</span>
             <span className="mx-2">•</span>
-            <span className="capitalize">{category.replace('-', ' ')}</span>
+            <span className="capitalize">{category.replace(/-/g, ' ')}</span>
           </div>
         </div>
 

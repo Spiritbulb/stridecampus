@@ -7,7 +7,7 @@ const octokit = new Octokit({
 
 const REPO_OWNER = 'Spiritbulb';
 const REPO_NAME = 'stridecampus';
-const CONTENT_PATH = 'content';
+const CONTENT_PATH = 'marketing/stride-landing-page/content';
 
 export async function getContent(path: string) {
   try {
