@@ -150,113 +150,43 @@ export default function DocsPage() {
       color: 'bg-blue-500',
       articles: [
         { slug: 'introduction', title: 'Introduction to Stride Campus', description: 'What is Stride Campus and how it works' },
-        { slug: 'signing-up', title: 'Signing Up & Verification', description: 'How to create your account and verify your student status' },
-        { slug: 'first-steps', title: 'Your First Steps', description: 'Getting started with your campus community' },
-        { slug: 'navigation', title: 'Navigation Guide', description: 'How to navigate the platform and find what you need' }
+        { slug: 'signing-up', title: 'Signing Up & Account Setup', description: 'How to create your account and verify your student status' },
+        { slug: 'first-steps', title: 'Your First Steps', description: 'Getting started with your campus community' }
       ]
     },
     {
-      id: 'spaces',
-      title: 'Campus Spaces',
-      description: 'Understanding and using campus communities',
+      id: 'features',
+      title: 'Platform Features',
+      description: 'Understanding and using all platform features',
       icon: <Users className="w-6 h-6" />,
       color: 'bg-green-500',
       articles: [
-        { slug: 'main-campus-space', title: 'Main Campus Space', description: 'Your primary campus community hub' },
-        { slug: 'course-spaces', title: 'Course Spaces', description: 'Subject-specific communities and study groups' },
-        { slug: 'club-spaces', title: 'Club & Organization Spaces', description: 'Connect with campus clubs and activities' },
-        { slug: 'creating-spaces', title: 'Creating Custom Spaces', description: 'How to create your own community spaces' },
-        { slug: 'space-management', title: 'Managing Spaces', description: 'Admin tools and space moderation' }
+        { slug: 'using-spaces', title: 'Using Spaces', description: 'Campus communities and how to participate' },
+        { slug: 'student-chat', title: 'Student Chat', description: 'Real-time chat with fellow students' },
+        { slug: 'ai-assistant', title: 'AI Assistant (Nia)', description: 'Get help from your AI study buddy' },
+        { slug: 'resource-library', title: 'Resource Library', description: 'Share and discover study materials' },
+        { slug: 'credit-system', title: 'Credit System', description: 'Earning and spending credits' }
       ]
     },
     {
-      id: 'credit-system',
-      title: 'Credit System',
-      description: 'Earning and spending credits',
-      icon: <Coins className="w-6 h-6" />,
+      id: 'help',
+      title: 'Help & FAQ',
+      description: 'Common questions and troubleshooting',
+      icon: <HelpCircle className="w-6 h-6" />,
       color: 'bg-yellow-500',
       articles: [
-        { slug: 'earning-credits', title: 'Earning Credits', description: 'How to earn credits through participation' },
-        { slug: 'spending-credits', title: 'Spending Credits', description: 'What you can do with your credits' },
-        { slug: 'credit-economy', title: 'Credit Economy', description: 'Understanding the credit system balance' },
-        { slug: 'boost-features', title: 'Boost Features', description: 'Using credits to boost your content' }
-      ]
-    },
-    {
-      id: 'library',
-      title: 'Shared Library',
-      description: 'Resource sharing and management',
-      icon: <Library className="w-6 h-6" />,
-      color: 'bg-purple-500',
-      articles: [
-        { slug: 'browsing-resources', title: 'Browsing Resources', description: 'Finding and accessing study materials' },
-        { slug: 'uploading-resources', title: 'Uploading Resources', description: 'How to share your study materials' },
-        { slug: 'resource-types', title: 'Resource Types', description: 'Different types of content you can share' },
-        { slug: 'search-and-filter', title: 'Search & Filter', description: 'Finding specific resources quickly' },
-        { slug: 'resource-management', title: 'Resource Management', description: 'Organizing and managing your uploads' }
-      ]
-    },
-    {
-      id: 'ai-assistant',
-      title: 'AI Assistant',
-      description: 'Using the AI chat feature',
-      icon: <Brain className="w-6 h-6" />,
-      color: 'bg-indigo-500',
-      articles: [
-        { slug: 'ai-chat-basics', title: 'AI Chat Basics', description: 'Getting started with AI assistance' },
-        { slug: 'study-help', title: 'Study Help', description: 'Using AI for academic support' },
-        { slug: 'campus-guidance', title: 'Campus Guidance', description: 'Getting help with campus-related questions' },
-        { slug: 'ai-best-practices', title: 'Best Practices', description: 'Getting the most out of AI assistance' }
-      ]
-    },
-    {
-      id: 'polls-surveys',
-      title: 'Polls & Surveys',
-      description: 'Creating and participating in polls',
-      icon: <BarChart3 className="w-6 h-6" />,
-      color: 'bg-pink-500',
-      articles: [
-        { slug: 'creating-polls', title: 'Creating Polls', description: 'How to create effective polls and surveys' },
-        { slug: 'poll-types', title: 'Poll Types', description: 'Different types of polls you can create' },
-        { slug: 'participating-polls', title: 'Participating in Polls', description: 'How to vote and provide feedback' },
-        { slug: 'poll-analytics', title: 'Poll Analytics', description: 'Understanding poll results and data' }
-      ]
-    },
-    {
-      id: 'mobile-app',
-      title: 'Mobile App',
-      description: 'Using Stride Campus on mobile',
-      icon: <Smartphone className="w-6 h-6" />,
-      color: 'bg-teal-500',
-      articles: [
-        { slug: 'mobile-features', title: 'Mobile Features', description: 'Features available on mobile devices' },
-        { slug: 'push-notifications', title: 'Push Notifications', description: 'Managing notifications on mobile' },
-        { slug: 'offline-access', title: 'Offline Access', description: 'Using the app without internet connection' },
-        { slug: 'mobile-tips', title: 'Mobile Tips', description: 'Tips for better mobile experience' }
-      ]
-    },
-    {
-      id: 'account-settings',
-      title: 'Account & Settings',
-      description: 'Managing your account and preferences',
-      icon: <Settings className="w-6 h-6" />,
-      color: 'bg-gray-500',
-      articles: [
-        { slug: 'profile-management', title: 'Profile Management', description: 'Updating your profile and preferences' },
-        { slug: 'privacy-settings', title: 'Privacy Settings', description: 'Controlling your privacy and visibility' },
-        { slug: 'notification-settings', title: 'Notification Settings', description: 'Managing how you receive notifications' },
-        { slug: 'account-security', title: 'Account Security', description: 'Keeping your account secure' }
+        { slug: 'faq', title: 'Frequently Asked Questions', description: 'Quick answers to common questions' }
       ]
     }
   ];
 
   const quickLinks = [
-    { title: 'How to earn credits', href: '/docs/credit-system/earning-credits' },
-    { title: 'Creating your first poll', href: '/docs/polls-surveys/creating-polls' },
-    { title: 'Uploading resources', href: '/docs/library/uploading-resources' },
-    { title: 'Using AI chat', href: '/docs/ai-assistant/ai-chat-basics' },
-    { title: 'Mobile app setup', href: '/docs/mobile-app/mobile-features' },
-    { title: 'Privacy settings', href: '/docs/account-settings/privacy-settings' }
+    { title: 'Getting Started', href: '/docs/getting-started/introduction' },
+    { title: 'Using Spaces', href: '/docs/features/using-spaces' },
+    { title: 'Student Chat', href: '/docs/features/student-chat' },
+    { title: 'AI Assistant (Nia)', href: '/docs/features/ai-assistant' },
+    { title: 'Resource Library', href: '/docs/features/resource-library' },
+    { title: 'Credit System', href: '/docs/features/credit-system' }
   ];
 
   return (

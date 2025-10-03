@@ -1,88 +1,181 @@
-# Signing Up & Verification
+---
+title: "Signing Up and Account Setup"
+order: 2
+---
 
-Creating your Stride Campus account is quick and easy. Follow this guide to get started with your campus community.
+# Signing Up and Account Setup
 
-## Step 1: Account Creation
+This guide will walk you through creating your Stride Campus account and setting up your profile.
 
-### Required Information
-- **University Email Address**: Must be a valid .edu email from a recognized university
-- **Full Name**: Your real name as it appears on university records
-- **Password**: Choose a strong, unique password
-- **University**: Select your university from our verified list
+## Creating Your Account
 
-### Email Verification Process
-1. Enter your university email address
-2. Check your email for a verification link
-3. Click the verification link to activate your account
-4. Complete your profile setup
+### Step 1: Access the Sign-Up Page
 
-## Step 2: Profile Setup
+1. Visit the Stride Campus homepage
+2. Click the **"Get Started"** button
+3. You'll be redirected to the authentication page
+
+### Step 2: Choose Your Sign-Up Method
+
+Stride Campus offers multiple ways to create your account:
+
+**Option A: Email Sign-Up**
+1. Enter your school email address
+2. Create a strong password
+3. Confirm your password
+4. Click **"Create Account"**
+
+**Option B: Social Sign-Up (if available)**
+1. Click on your preferred social platform
+2. Authorize Stride Campus to access your basic profile
+3. Your account will be created automatically
+
+### Step 3: Verify Your Email
+
+1. Check your email inbox for a verification message
+2. Click the verification link in the email
+3. If you don't see the email, check your spam folder
+4. Return to Stride Campus and try logging in
+
+**Important**: You must use a valid school email address (ending in .edu or your school's domain) to join the platform.
+
+## Account Setup
 
 ### Profile Information
-- **Display Name**: How you'll appear to other students
-- **Profile Picture**: Upload a clear photo of yourself
-- **Bio**: Brief description of yourself and interests
-- **Academic Information**: Major, year, and relevant details
+
+After verifying your email, you'll be prompted to complete your profile:
+
+**Username**
+- Choose a unique username (this will be your public identifier)
+- Username can contain letters, numbers, and underscores
+- Cannot be changed more than once per month
+- Make it memorable and professional
+
+**Profile Picture**
+- Upload a clear photo of yourself
+- Supported formats: JPG, PNG, GIF
+- Maximum file size: 5MB
+- You can change this later in your settings
+
+**Bio**
+- Write a brief description about yourself
+- Include your major, interests, or goals
+- Keep it professional but friendly
+- This helps other students connect with you
+
+**School Information**
+- Select your school from the dropdown
+- Choose your major or field of study
+- Add your graduation year (optional)
+- This helps you find relevant spaces and resources
 
 ### Privacy Settings
-- **Profile Visibility**: Control who can see your profile
-- **Contact Information**: Choose what contact info to share
-- **Activity Privacy**: Control visibility of your posts and activity
 
-## Step 3: Campus Space Access
+**Profile Visibility**
+- **Public**: Other students can see your profile
+- **Friends Only**: Only your connections can see your profile
+- **Private**: Only you can see your profile
 
-### Automatic Enrollment
-- You'll automatically join your university's main campus space
-- Access to campus-wide discussions and announcements
-- Ability to see other verified students from your university
+**Notification Preferences**
+- Choose which notifications you want to receive
+- Set your preferred notification schedule
+- Enable/disable email notifications
+- Configure push notification settings
 
-### Additional Spaces
-- **Course Spaces**: Join spaces for your specific courses
-- **Club Spaces**: Connect with campus clubs and organizations
-- **Custom Spaces**: Create or join spaces for projects and interests
+## Account Verification
 
-## Verification Requirements
+### School Email Verification
 
-### University Email
-- Must be from a recognized university
-- Email domain must be verified by our system
-- Cannot use personal email addresses (Gmail, Yahoo, etc.)
+Stride Campus requires school email verification to ensure only students can join:
 
-### Student Status
-- Must be currently enrolled or recently graduated
-- Alumni with verified university emails are welcome
-- Faculty and staff may have limited access
+1. **Automatic Verification**: Most .edu domains are automatically verified
+2. **Manual Verification**: Some schools may require manual verification
+3. **Alternative Verification**: Contact support if you don't have a school email
 
-## Troubleshooting
+### Identity Verification
 
-### Common Issues
-- **Email Not Received**: Check spam folder, request resend
-- **Verification Link Expired**: Request a new verification email
-- **University Not Found**: Contact support if your university isn't listed
-- **Email Domain Issues**: Verify your email format and domain
+For additional security and features, you may be asked to:
 
-### Getting Help
-If you encounter any issues during signup:
-- Check our [Account Issues](/support/account-issues/login-problems) support section
-- Contact support at support@stridecampus.com
-- Use our live chat feature for immediate assistance
+1. **Upload Student ID**: Provide a photo of your student ID
+2. **School Confirmation**: Verify your enrollment status
+3. **Additional Documentation**: Provide other proof of student status
+
+## Troubleshooting Sign-Up Issues
+
+### Common Problems
+
+**Email Not Received**
+- Check your spam/junk folder
+- Wait 5-10 minutes for the email to arrive
+- Try requesting a new verification email
+- Contact support if emails still don't arrive
+
+**School Email Not Recognized**
+- Make sure you're using your official school email
+- Check if your school is in our database
+- Contact support to add your school if needed
+- Provide alternative verification if necessary
+
+**Account Creation Failed**
+- Check your internet connection
+- Try refreshing the page
+- Clear your browser cache
+- Try a different browser
+- Contact support if the issue persists
+
+**Username Already Taken**
+- Try variations of your desired username
+- Add numbers or underscores
+- Consider using your full name
+- Check availability before submitting
 
 ## Security Best Practices
 
 ### Password Security
-- Use a strong, unique password
-- Enable two-factor authentication when available
-- Never share your login credentials
+
+**Create a Strong Password**
+- Use at least 8 characters
+- Include uppercase and lowercase letters
+- Add numbers and special characters
+- Avoid common words or personal information
+- Don't reuse passwords from other accounts
+
+**Password Management**
+- Use a password manager if possible
+- Never share your password with others
+- Change your password periodically
+- Enable two-factor authentication if available
 
 ### Account Security
-- Log out from shared devices
+
+**Protect Your Account**
+- Log out when using shared devices
+- Don't share your login credentials
+- Be cautious of phishing attempts
 - Report suspicious activity immediately
-- Keep your contact information updated
+
+**Regular Maintenance**
+- Keep your profile information current
+- Review your privacy settings regularly
+- Check your account activity periodically
+- Update your contact information as needed
+
+## Getting Help
+
+If you encounter any issues during sign-up:
+
+1. **Check our FAQ** for common questions
+2. **Contact Support** for personalized assistance
+3. **Use Live Chat** for immediate help
+4. **Email Support** for detailed issues
 
 ## Next Steps
 
-Once your account is verified:
-1. Complete your profile setup
-2. Explore your campus space
-3. Check out our [First Steps](/docs/getting-started/first-steps) guide
-4. Start earning credits through participation
+Once your account is set up:
+
+1. **[Complete Your Profile](../introduction.md)**: Finish setting up your account
+2. **[Join Your First Space](../features/using-spaces.md)**: Start participating in campus communities
+3. **[Explore Features](../features/)**: Learn about all available tools
+4. **[Get Help](../help/faq.md)**: Find answers to common questions
+
+Welcome to Stride Campus! Your journey to better campus collaboration starts here. 🎓✨
