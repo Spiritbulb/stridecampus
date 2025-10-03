@@ -1,6 +1,6 @@
 // hooks/useChat.ts
 import { useState, useEffect, useRef } from 'react';
-import { useSafeApp } from '@/contexts/SafeAppContext';
+import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/utils/supabaseClient';
 import { NotificationService } from '@/utils/notificationService';
 
@@ -50,7 +50,7 @@ export interface User {
 }
 
 export const useChat = () => {
-  const { user } = useSafeApp();
+  const { user } = useApp();
   const [chats, setChats] = useState<Chat[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);

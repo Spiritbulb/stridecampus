@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { useSupabaseMessageStore } from '@/hooks/useSupabaseMessageStore';
+// ===========================
+// ChatContainer.tsx - Main orchestrator
+// ===========================
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useRealtimeSupabaseMessageStore } from '@/hooks/useRealtimeSupabaseMessageStore';
 import { useApp } from '@/contexts/AppContext';
 import { ChatListView } from './views/ChatListView';
 import { ActiveChatView } from './views/ActiveChatView';
@@ -20,88 +23,133 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
   initialSessionId
 }) => {
   const { user } = useApp();
-  const messageStore = useSupabaseMessageStore(user?.id);
+  
+  // SINGLE source of truth for message store
+  const messageStore = useRealtimeSupabaseMessageStore(user?.id);
+  
+  // Local UI state only
   const [currentView, setCurrentView] = useState<ChatView>(initialView);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(initialSessionId || null);
+  
+  // Track if initial setup is complete to prevent loops
+  const isInitialSetupComplete = useRef(false);
+  const lastSessionId = useRef<string | null>(null);
 
-  // Initialize with active session if available
+  // Initialize once when component mounts or initial session changes
   useEffect(() => {
-    if (initialSessionId) {
-      setActiveSessionId(initialSessionId);
-      setCurrentView('chat');
-    } else if (messageStore.activeSession && messageStore.isInitialized) {
-      setActiveSessionId(messageStore.activeSession.id);
-      setCurrentView('chat');
-    }
-  }, [initialSessionId, messageStore.activeSession, messageStore.isInitialized]);
+    if (isInitialSetupComplete.current) return;
 
-  // Handle creating a new chat
-  const handleCreateNew = async () => {
-    console.log('Creating new chat...');
+    const initializeSession = async () => {
+      if (initialSessionId && initialSessionId !== lastSessionId.current) {
+        // User explicitly wants a specific session
+        try {
+          await messageStore.switchToSession(initialSessionId);
+          setActiveSessionId(initialSessionId);
+          setCurrentView('chat');
+          lastSessionId.current = initialSessionId;
+          isInitialSetupComplete.current = true;
+        } catch (error) {
+          console.error('Error initializing session:', error);
+          setCurrentView('list');
+          isInitialSetupComplete.current = true;
+        }
+      } else if (messageStore.isInitialized && messageStore.activeSession) {
+        // Resume existing active session
+        setActiveSessionId(messageStore.activeSession.id);
+        setCurrentView('chat');
+        lastSessionId.current = messageStore.activeSession.id;
+        isInitialSetupComplete.current = true;
+      } else if (messageStore.isInitialized) {
+        // No active session, show list
+        isInitialSetupComplete.current = true;
+      }
+    };
+
+    initializeSession();
+  }, [initialSessionId, messageStore.isInitialized, messageStore.activeSession?.id]);
+
+  // Memoized handlers to prevent recreation
+  const handleCreateNew = useCallback(async () => {
     try {
       const newSession = await messageStore.createSession();
-      console.log('New session created:', newSession.id);
       setActiveSessionId(newSession.id);
       setCurrentView('chat');
-      console.log('Switched to chat view with session:', newSession.id);
+      lastSessionId.current = newSession.id;
     } catch (error) {
       console.error('Error creating new chat:', error);
     }
-  };
+  }, [messageStore]);
 
-  // Handle selecting an existing chat
-  const handleChatSelect = async (sessionId: string) => {
+  const handleChatSelect = useCallback(async (sessionId: string) => {
+    // Prevent unnecessary switches
+    if (sessionId === lastSessionId.current && currentView === 'chat') {
+      return;
+    }
+
     try {
       await messageStore.switchToSession(sessionId);
       setActiveSessionId(sessionId);
       setCurrentView('chat');
+      lastSessionId.current = sessionId;
     } catch (error) {
       console.error('Error switching to chat:', error);
     }
-  };
+  }, [messageStore, currentView]);
 
-  // Handle going back to chat list
-  const handleBackToList = () => {
+  const handleBackToList = useCallback(() => {
     setCurrentView('list');
-    setActiveSessionId(null);
-  };
+  }, []);
 
-  // Handle starting a new chat from within active chat
-  const handleNewChatFromActive = async () => {
-    console.log('Creating new chat from active chat...');
+  const handleNewChatFromActive = useCallback(async () => {
     try {
       const newSession = await messageStore.createSession();
-      console.log('New session created from active:', newSession.id);
       setActiveSessionId(newSession.id);
-      console.log('Switched to new session:', newSession.id);
-      // Stay in chat view, just switch to new session
+      lastSessionId.current = newSession.id;
     } catch (error) {
       console.error('Error creating new chat from active:', error);
     }
-  };
+  }, [messageStore]);
 
-  // Handle close
-  const handleClose = () => {
-    if (onClose) {
-      onClose();
-    }
-  };
+  // Show loading state while initializing
+  if (!messageStore.isInitialized) {
+    return (
+      <div className={`flex items-center justify-center bg-white ${className} h-full`}>
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-gray-200 border-t-gray-900 rounded-full animate-spin mx-auto mb-2"></div>
+          <p className="text-sm text-gray-600">Loading chats...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex flex-col bg-white ${className} overflow-hidden h-full`}>
       {currentView === 'list' ? (
         <ChatListView
+          messageStore={messageStore}
           onChatSelect={handleChatSelect}
           onCreateNew={handleCreateNew}
-          userId={user?.id}
         />
-      ) : (
+      ) : activeSessionId ? (
         <ActiveChatView
-          key={activeSessionId} // Force re-render when session changes
-          sessionId={activeSessionId!}
+          key={activeSessionId}
+          sessionId={activeSessionId}
+          messageStore={messageStore}
           onBack={handleBackToList}
           onNewChat={handleNewChatFromActive}
         />
+      ) : (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <p className="text-gray-600 mb-4">No chat selected</p>
+            <button
+              onClick={handleBackToList}
+              className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+            >
+              Back to Chats
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

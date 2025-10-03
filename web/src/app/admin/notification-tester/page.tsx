@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSafeApp } from '@/contexts/SafeAppContext';
+import { useApp } from '@/contexts/AppContext';
 import { useEnhancedNotifications } from '@/hooks/useEnhancedNotifications';
 import { useUnifiedNotifications } from '@/hooks/useUnifiedNotifications';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -40,7 +40,7 @@ interface TestForm {
 }
 
 export default function NotificationSystemTester() {
-  const { user, isAuthenticated } = useSafeApp();
+  const { user, isAuthenticated } = useApp();
   const { toast } = useToast();
   
   const {

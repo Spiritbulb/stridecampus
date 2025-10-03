@@ -1,5 +1,8 @@
+// ===========================
+// ChatListView.tsx - Optimized list view
+// ===========================
 import React, { useState, useMemo, useCallback } from 'react';
-import { useSupabaseMessageStore, ChatSessionWithMessages } from '@/hooks/useSupabaseMessageStore';
+import { ChatSessionWithMessages } from '@/hooks/useRealtimeSupabaseMessageStore';
 import { 
   PlusIcon, 
   TrashIcon, 
@@ -8,30 +11,49 @@ import {
 } from '@heroicons/react/24/outline';
 
 interface ChatListViewProps {
+  messageStore: any; // ReturnType<typeof useRealtimeSupabaseMessageStore>
   onChatSelect: (sessionId: string) => void;
   onCreateNew: () => void;
-  userId?: string;
 }
 
-// Memoized session item component for better performance
+// Memoized session item
 const SessionItem = React.memo<{
   session: ChatSessionWithMessages;
   onSelect: (sessionId: string) => void;
   onDelete: (sessionId: string, event: React.MouseEvent) => void;
-  formatDate: (dateString: string) => string;
-  getLastMessagePreview: (session: ChatSessionWithMessages) => string;
-}>(({ session, onSelect, onDelete, formatDate, getLastMessagePreview }) => {
-  const handleClick = useCallback(() => {
-    onSelect(session.id);
-  }, [onSelect, session.id]);
+}>(({ session, onSelect, onDelete }) => {
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (diffDays === 1) {
+      return 'Yesterday';
+    } else if (diffDays < 7) {
+      return date.toLocaleDateString([], { weekday: 'short' });
+    } else {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+  };
 
-  const handleDelete = useCallback((e: React.MouseEvent) => {
-    onDelete(session.id, e);
-  }, [onDelete, session.id]);
+  const getLastMessagePreview = () => {
+    const lastUserMessage = session.messages
+      .filter((msg: any) => msg.isUser)
+      .pop();
+    
+    if (lastUserMessage) {
+      const preview = lastUserMessage.content.slice(0, 60);
+      return preview + (lastUserMessage.content.length > 60 ? '...' : '');
+    }
+    return 'No messages yet';
+  };
 
   return (
     <div
-      onClick={handleClick}
+      onClick={() => onSelect(session.id)}
       className="group px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-100"
     >
       <div className="flex items-center justify-between">
@@ -47,10 +69,10 @@ const SessionItem = React.memo<{
           
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500 truncate pr-2">
-              {getLastMessagePreview(session)}
+              {getLastMessagePreview()}
             </p>
             <button
-              onClick={handleDelete}
+              onClick={(e) => onDelete(session.id, e)}
               className="flex-shrink-0 w-8 h-8 rounded-full hover:bg-gray-200 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
             >
               <TrashIcon className="w-4 h-4 text-gray-500" />
@@ -64,15 +86,10 @@ const SessionItem = React.memo<{
 
 SessionItem.displayName = 'SessionItem';
 
-// Memoized empty state component
 const EmptyState = React.memo<{
   searchQuery: string;
   onCreateNew: () => void;
 }>(({ searchQuery, onCreateNew }) => {
-  const handleCreateNew = useCallback(() => {
-    onCreateNew();
-  }, [onCreateNew]);
-
   if (searchQuery) {
     return (
       <div className="text-center">
@@ -91,7 +108,7 @@ const EmptyState = React.memo<{
       <h3 className="text-lg font-medium text-gray-900 mb-1">No conversations yet</h3>
       <p className="text-gray-500 text-sm mb-6">Start chatting with Nia</p>
       <button 
-        onClick={handleCreateNew}
+        onClick={onCreateNew}
         className="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-full transition-colors"
       >
         Start Chatting
@@ -102,26 +119,18 @@ const EmptyState = React.memo<{
 
 EmptyState.displayName = 'EmptyState';
 
-// Memoized delete modal component
 const DeleteModal = React.memo<{
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
 }>(({ isOpen, onClose, onConfirm }) => {
-  const handleOverlayClick = useCallback((e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  }, [onClose]);
-
-  const handleConfirm = useCallback(() => {
-    onConfirm();
-  }, [onConfirm]);
-
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" onClick={handleOverlayClick}>
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" 
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Chat?</h3>
         <p className="text-gray-600 text-sm mb-6">
@@ -135,7 +144,7 @@ const DeleteModal = React.memo<{
             Cancel
           </button>
           <button
-            onClick={handleConfirm}
+            onClick={onConfirm}
             className="flex-1 px-4 py-2.5 text-sm font-medium bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
           >
             Delete
@@ -148,54 +157,16 @@ const DeleteModal = React.memo<{
 
 DeleteModal.displayName = 'DeleteModal';
 
-interface ChatListViewProps {
-  onChatSelect: (sessionId: string) => void;
-  onCreateNew: () => void;
-  userId?: string;
-}
-
 export const ChatListView: React.FC<ChatListViewProps> = ({
+  messageStore,
   onChatSelect,
-  onCreateNew,
-  userId
+  onCreateNew
 }) => {
-  const messageStore = useSupabaseMessageStore(userId);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
 
-  // Memoized date formatter to prevent recreation on every render
-  const formatDate = useCallback((dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else if (diffDays === 1) {
-      return 'Yesterday';
-    } else if (diffDays < 7) {
-      return date.toLocaleDateString([], { weekday: 'short' });
-    } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    }
-  }, []);
-
-  // Memoized message preview extractor
-  const getLastMessagePreview = useCallback((session: ChatSessionWithMessages) => {
-    const lastUserMessage = session.messages
-      .filter((msg: any) => msg.isUser)
-      .pop();
-    
-    if (lastUserMessage) {
-      const preview = lastUserMessage.content.slice(0, 60);
-      return preview + (lastUserMessage.content.length > 60 ? '...' : '');
-    }
-    return 'No messages yet';
-  }, []);
-
-  // Optimized search with debouncing and memoization
+  // Optimized search with memoization
   const filteredSessions = useMemo(() => {
     if (!searchQuery.trim()) {
       return messageStore.sessions;
@@ -203,19 +174,16 @@ export const ChatListView: React.FC<ChatListViewProps> = ({
     
     const query = searchQuery.toLowerCase();
     return messageStore.sessions.filter((session: ChatSessionWithMessages) => {
-      // Search in title first (faster)
       if (session.title.toLowerCase().includes(query)) {
         return true;
       }
       
-      // Search in message content (only if title doesn't match)
       return session.messages.some((message: any) => 
         message.content.toLowerCase().includes(query)
       );
     });
   }, [messageStore.sessions, searchQuery]);
 
-  // Memoized event handlers
   const handleDeleteSession = useCallback((sessionId: string, event: React.MouseEvent) => {
     event.stopPropagation();
     setSessionToDelete(sessionId);
@@ -234,25 +202,18 @@ export const ChatListView: React.FC<ChatListViewProps> = ({
     }
   }, [sessionToDelete, messageStore]);
 
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  }, []);
-
-  const handleCreateNew = useCallback(() => {
-    onCreateNew();
-  }, [onCreateNew]);
-
-  const handleChatSelect = useCallback((sessionId: string) => {
-    onChatSelect(sessionId);
-  }, [onChatSelect]);
-
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* Header */}
       <div className="px-6 py-4">
         <div className="flex items-center justify-between mb-4">
-          <div>
+          <div className="flex items-center gap-2">
             <h1 className="text-2xl font-semibold text-gray-900">Chats with Nia</h1>
+            {messageStore.isRealtimeConnected && (
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-green-600">Live</span>
+              </div>
+            )}
           </div>
           <button
             onClick={onCreateNew}
@@ -262,42 +223,37 @@ export const ChatListView: React.FC<ChatListViewProps> = ({
           </button>
         </div>
 
-        {/* Search */}
         <div className="relative">
           <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
             placeholder="Search"
             value={searchQuery}
-            onChange={handleSearchChange}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-11 pr-4 py-2.5 bg-gray-100 rounded-full text-sm focus:outline-none focus:bg-gray-200 transition-colors"
           />
         </div>
       </div>
 
-      {/* Chat List */}
       <div className="flex-1 overflow-y-auto">
         {filteredSessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full px-6 pb-20">
-            <EmptyState searchQuery={searchQuery} onCreateNew={handleCreateNew} />
+            <EmptyState searchQuery={searchQuery} onCreateNew={onCreateNew} />
           </div>
         ) : (
           <div>
-            {filteredSessions.map((session) => (
+            {filteredSessions.map((session: ChatSessionWithMessages) => (
               <SessionItem
                 key={session.id}
                 session={session}
-                onSelect={handleChatSelect}
+                onSelect={onChatSelect}
                 onDelete={handleDeleteSession}
-                formatDate={formatDate}
-                getLastMessagePreview={getLastMessagePreview}
               />
             ))}
           </div>
         )}
       </div>
 
-      {/* Delete Confirmation Modal */}
       <DeleteModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}

@@ -39,6 +39,12 @@ export default function NoAuthNavbar() {
             <Link href="/features" className="text-gray-700 hover:text-[#f23b36] transition-colors">
               Features
             </Link>
+            <Link href="/docs" className="text-gray-700 hover:text-[#f23b36] transition-colors">
+              Docs
+            </Link>
+            <Link href="/support" className="text-gray-700 hover:text-[#f23b36] transition-colors">
+              Support
+            </Link>
             <Link href="/contact" className="text-gray-700 hover:text-[#f23b36] transition-colors">
               Contact
             </Link>
@@ -89,6 +95,12 @@ export default function NoAuthNavbar() {
             </Link>
             <Link href="/features" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-[#f23b36] hover:bg-gray-50">
               Features
+            </Link>
+            <Link href="/docs" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-[#f23b36] hover:bg-gray-50">
+              Docs
+            </Link>
+            <Link href="/support" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-[#f23b36] hover:bg-gray-50">
+              Support
             </Link>
             <Link href="/contact" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-[#f23b36] hover:bg-gray-50">
               Contact

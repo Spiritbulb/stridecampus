@@ -3,11 +3,11 @@ import React, { useState } from 'react';
 import { supabase } from '@/utils/supabaseClient';
 import { Comment } from '@/utils/supabaseClient';
 import { LibraryFile } from '@/components/library/types';
-import { Send, FileText, Plus, X } from 'lucide-react';
+import { Smile, FileText, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import CommentComponent from './CommentComponent';
 import ResourceSelector from './ResourceSelector';
-import { useSafeApp } from '@/contexts/SafeAppContext';
+import { useApp } from '@/contexts/AppContext';
 
 interface CommentSectionProps {
   postId: string;
@@ -17,15 +17,13 @@ interface CommentSectionProps {
 }
 
 export default function CommentSection({ postId, comments, isLoading, onCommentAdded }: CommentSectionProps) {
-  const { user } = useSafeApp();
+  const { user } = useApp();
   const [commentContent, setCommentContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedResources, setSelectedResources] = useState<LibraryFile[]>([]);
   const [showResourceSelector, setShowResourceSelector] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleSubmit = async () => {
     if (!user) {
       toast({
         title: 'Authentication required',
@@ -35,19 +33,11 @@ export default function CommentSection({ postId, comments, isLoading, onCommentA
       return;
     }
 
-    if (!commentContent.trim()) {
-      toast({
-        title: 'Comment required',
-        description: 'Please write a comment',
-        variant: 'destructive'
-      });
-      return;
-    }
+    if (!commentContent.trim()) return;
 
     setIsSubmitting(true);
 
     try {
-      // Create the comment
       const { data: comment, error: commentError } = await supabase
         .from('comments')
         .insert({
@@ -60,7 +50,6 @@ export default function CommentSection({ postId, comments, isLoading, onCommentA
 
       if (commentError) throw commentError;
 
-      // Add resource tags if any
       if (selectedResources.length > 0) {
         const resourceTags = selectedResources.map(resource => ({
           comment_id: comment.id,
@@ -74,13 +63,11 @@ export default function CommentSection({ postId, comments, isLoading, onCommentA
         if (tagError) throw tagError;
       }
 
-      // Clear form
       setCommentContent('');
       setSelectedResources([]);
 
       toast({
-        title: 'Success',
-        description: 'Comment added'
+        title: 'Comment added'
       });
 
       onCommentAdded();
@@ -109,96 +96,97 @@ export default function CommentSection({ postId, comments, isLoading, onCommentA
 
   if (isLoading) {
     return (
-      <div className="p-6">
-        <div className="flex justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#f23b36]"></div>
-        </div>
+      <div className="flex justify-center py-8">
+        <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-gray-400"></div>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      {/* Comment form */}
-      {user ? (
-        <div className="mb-6">
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div>
-              <textarea
-                value={commentContent}
-                onChange={(e) => setCommentContent(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f23b36] focus:border-transparent"
-                rows={3}
-                placeholder="What are your thoughts?"
-                disabled={isSubmitting}
-              />
-            </div>
-
-            {/* Selected resources */}
-            {selectedResources.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {selectedResources.map(resource => (
-                  <div key={resource.id} className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-full">
-                    <FileText size={14} />
-                    <span className="truncate max-w-xs">{resource.original_name}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeResource(resource.id)}
-                      className="text-blue-700 hover:text-blue-900"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => setShowResourceSelector(true)}
-                className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-800"
-              >
-                <Plus size={16} />
-                Attach resource
-              </button>
-
-              <button
-                type="submit"
-                disabled={isSubmitting || !commentContent.trim()}
-                className="flex items-center gap-2 px-4 py-2 bg-[#f23b36] text-white rounded-lg disabled:opacity-50 hover:shadow-md transition-all"
-              >
-                <Send size={16} />
-                {isSubmitting ? 'Posting...' : 'Comment'}
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : (
-        <div className="p-4 bg-gray-100 rounded-lg text-center mb-6">
-          <p className="text-gray-700">Please sign in to leave a comment</p>
-        </div>
-      )}
-
+    <div className="flex flex-col h-full">
       {/* Comments list */}
-      <div className="space-y-4">
+      <div className="flex-1 overflow-y-auto px-4">
         {comments.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <p>No comments yet. Be the first to comment!</p>
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-sm mb-1 font-semibold">No comments yet</p>
+            <p className="text-gray-400 text-xs">Start the conversation.</p>
           </div>
         ) : (
-          comments.map(comment => (
-            <CommentComponent
-              key={comment.id}
-              comment={comment}
-              postId={postId}
-              onCommentAdded={onCommentAdded}
-            />
-          ))
+          <div className="divide-y divide-gray-100">
+            {comments.map(comment => (
+              <CommentComponent
+                key={comment.id}
+                comment={comment}
+                postId={postId}
+                onCommentAdded={onCommentAdded}
+              />
+            ))}
+          </div>
         )}
       </div>
 
-      {/* Resource selector modal */}
+      {/* Comment input - Fixed at bottom */}
+      {user ? (
+        <div className="border-t border-gray-200 bg-white px-4 py-3">
+          {/* Selected resources */}
+          {selectedResources.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1">
+              {selectedResources.map(resource => (
+                <div key={resource.id} className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded">
+                  <FileText size={10} />
+                  <span className="truncate max-w-[100px]">{resource.original_name}</span>
+                  <button
+                    onClick={() => removeResource(resource.id)}
+                    className="text-blue-700 hover:text-blue-900"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowResourceSelector(true)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <FileText size={20} />
+            </button>
+
+            <input
+              type="text"
+              value={commentContent}
+              onChange={(e) => setCommentContent(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
+              placeholder="Add a comment..."
+              className="flex-1 text-sm px-0 py-1 border-0 focus:outline-none focus:ring-0"
+              disabled={isSubmitting}
+            />
+
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting || !commentContent.trim()}
+              className="text-sm font-semibold text-blue-500 hover:text-blue-600 disabled:opacity-50"
+            >
+              Post
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="border-t border-gray-200 bg-white px-4 py-3 text-center">
+          <p className="text-sm text-gray-500">
+            Please sign in to comment
+          </p>
+        </div>
+      )}
+
+      {/* Resource Selector Modal */}
       {showResourceSelector && (
         <ResourceSelector
           onSelect={addResource}

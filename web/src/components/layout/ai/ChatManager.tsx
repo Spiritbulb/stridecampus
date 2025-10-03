@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSupabaseMessageStore, ChatSessionWithMessages } from '@/hooks/useSupabaseMessageStore';
+import { useRealtimeSupabaseMessageStore, ChatSessionWithMessages } from '@/hooks/useRealtimeSupabaseMessageStore';
 import { Message } from './types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -27,7 +27,7 @@ export const ChatManager: React.FC<ChatManagerProps> = ({
   className = ''
 }) => {
   const { user } = useApp();
-  const { sessions, stats, deleteSession, clearAllSessions } = useSupabaseMessageStore(user?.id);
+  const { sessions, stats, deleteSession, clearAllSessions, isRealtimeConnected } = useRealtimeSupabaseMessageStore(user?.id);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
   const [showClearModal, setShowClearModal] = useState(false);
@@ -74,7 +74,15 @@ export const ChatManager: React.FC<ChatManagerProps> = ({
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-900">Chat History</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-900">Chat History</h2>
+              {isRealtimeConnected && (
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-green-600">Live</span>
+                </div>
+              )}
+            </div>
             <Button
               onClick={onCreateNew}
               size="sm"

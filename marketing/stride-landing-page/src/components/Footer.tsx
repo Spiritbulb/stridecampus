@@ -40,6 +40,11 @@ export default function NoAuthFooter() {
                 </Link>
               </li>
               <li>
+                <Link href="/docs" className="text-gray-400 hover:text-[#f23b36] transition-colors">
+                  Documentation
+                </Link>
+              </li>
+              <li>
                 <Link href="/donate" className="text-gray-400 hover:text-[#f23b36] transition-colors">
                   Donate
                 </Link>
@@ -57,8 +62,8 @@ export default function NoAuthFooter() {
             <h4 className="text-lg font-semibold mb-4">Support</h4>
             <ul className="space-y-2">
               <li>
-                <Link href="/help" className="text-gray-400 hover:text-[#f23b36] transition-colors">
-                  Help Center
+                <Link href="/support" className="text-gray-400 hover:text-[#f23b36] transition-colors">
+                  Support Center
                 </Link>
               </li>
               <li>

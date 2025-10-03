@@ -1,6 +1,6 @@
 'use client';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, User, LogOut, X, MessageSquare, Home, BookOpen, Users, Settings, MessageCirclePlus, Menu, PlusSquare } from 'lucide-react';
+import { Bell, User, LogOut, X, MessageSquare, Home, BookOpen, Users, Settings, MessageCirclePlus, Menu, PlusSquare, Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useApp } from '@/contexts/AppContext';
@@ -13,6 +13,7 @@ import CreateModal from '@/components/create/CreateModal';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Home01Icon, Book01Icon, PeerToPeer01FreeIcons, PlusSignIcon, RankingIcon, Message01Icon, Setting06FreeIcons, Settings01FreeIcons } from '@hugeicons/core-free-icons';
 import DonationSection from '@/components/common/DonationSection';
+import { AIModal } from '@/components/layout/ai';
 
 // Constants
 const NOTIFICATIONS_STORAGE_KEY = 'notificationsOpen';
@@ -209,7 +210,8 @@ const MobileNavigation = React.memo(({
   onNotificationsToggle,
   notificationPermission,
   onRequestPermission,
-  onCreateClick
+  onCreateClick,
+  onAIModalToggle
 }: {
   pathname: string;
   user: any;
@@ -220,13 +222,13 @@ const MobileNavigation = React.memo(({
   notificationPermission: NotificationPermission;
   onRequestPermission: () => void;
   onCreateClick: () => void;
+  onAIModalToggle: () => void;
 }) => {
   const [isMenuOpen, setMenuOpen] = useState(false);
   
   const navItems = [
     { name: 'Spaces', href: '/spaces', icon: Home01Icon },
     { name: 'Arena', href: '/arena', icon: RankingIcon },
-    { name: 'Create', icon: PlusSignIcon, isAction: true },
     { name: 'Library', href: '/library', icon: Book01Icon },
     { name: 'Chats', href: '/chats', icon: Message01Icon },
     { name: 'Settings', href: '/settings', icon: Setting06FreeIcons },
@@ -241,8 +243,12 @@ const MobileNavigation = React.memo(({
   };
 
   const handleItemClick = (item: any) => {
-    if (item.isAction && item.name === 'Create') {
-      onCreateClick();
+    if (item.isAction) {
+      if (item.name === 'Create') {
+        onCreateClick();
+      } else if (item.actionType === 'ai') {
+        onAIModalToggle();
+      }
     }
     setMenuOpen(false);
   };
@@ -311,7 +317,7 @@ const MobileNavigation = React.memo(({
             <nav className="flex-1 py-4">
               <div className="space-y-1 px-2">
                 {navItems.map((item) => {
-                  const isActive = !item.isAction && (
+                  const isActive = (
                     pathname === item.href || 
                     pathname.startsWith(item.href?.split('?')[0] || '')
                   );
@@ -320,12 +326,10 @@ const MobileNavigation = React.memo(({
                     <button
                       key={item.name}
                       onClick={() => {
-                        if (item.isAction) {
-                          handleItemClick(item);
-                        } else {
+                       
                           setMenuOpen(false);
                           router.push(`${item.href}`);
-                        }
+                        
                       }}
                       className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 w-full text-left ${
                         isActive
@@ -333,13 +337,13 @@ const MobileNavigation = React.memo(({
                           : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                       }`}
                     >
-                      <HugeiconsIcon 
-                        icon={item.icon} 
-                        size={20} 
-                        color="currentColor" 
-                        strokeWidth={1.5}
-                        className={isActive ? 'text-white' : 'text-current'}
-                      />
+                        <HugeiconsIcon 
+                          icon={item.icon as any} 
+                          size={20} 
+                          color="currentColor" 
+                          strokeWidth={1.5}
+                          className={isActive ? 'text-white' : 'text-current'}
+                        />
                       <span className="font-medium">{item.name}</span>
                     </button>
                   );
@@ -388,7 +392,8 @@ const MobileNav = React.memo(({
   notificationPermission,
   onRequestPermission,
   pathname,
-  onCreateClick
+  onCreateClick,
+  onAIModalToggle
 }: { 
   user: any; 
   username: any; 
@@ -399,6 +404,7 @@ const MobileNav = React.memo(({
   onRequestPermission: () => void;
   pathname: string;
   onCreateClick: () => void;
+  onAIModalToggle: () => void;
 }) => {
   return (
     <div className="flex md:hidden items-center gap-3">
@@ -413,6 +419,7 @@ const MobileNav = React.memo(({
           notificationPermission={notificationPermission}
           onRequestPermission={onRequestPermission}
           onCreateClick={onCreateClick}
+          onAIModalToggle={onAIModalToggle}
         />
       )}
     </div>
@@ -432,7 +439,8 @@ const DesktopSidebar = React.memo(({
   onNotificationsToggle,
   notificationPermission,
   onRequestPermission,
-  onCreateClick
+  onCreateClick,
+  
 }: { 
   pathname: string;
   user: any;
@@ -443,12 +451,11 @@ const DesktopSidebar = React.memo(({
   onNotificationsToggle: () => void;
   notificationPermission: NotificationPermission;
   onRequestPermission: () => void;
-  onCreateClick: () => void;
+  onCreateClick: () => void;  
 }) => {
   const navItems = [
     { name: 'Spaces', href: '/spaces', icon: Home01Icon },
     { name: 'Arena', href: '/arena', icon: RankingIcon },
-    { name: 'Create', icon: PlusSignIcon, isAction: true },
     { name: 'Library', href: '/library', icon: Book01Icon },
     { name: 'Chats', href: '/chats', icon: Message01Icon },
     { name: 'Settings', href: '/settings', icon: Settings01FreeIcons },
@@ -473,14 +480,14 @@ const DesktopSidebar = React.memo(({
 
       <nav className="flex-1 flex flex-col items-center gap-2">
         {navItems.map((item) => {
-          const isActive = !item.isAction && (
+          const isActive = (
             pathname === item.href || 
             pathname.startsWith(item.href?.split('?')[0] || '')
           );
           
           return (
             <div key={item.name} className="relative group">
-              {item.isAction ? (
+             
                 <button
                   onClick={onCreateClick}
                   className={`flex items-center justify-center w-12 h-12 rounded-lg transition-all duration-200 ${
@@ -489,9 +496,11 @@ const DesktopSidebar = React.memo(({
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   }`}
                 >
-                  <HugeiconsIcon icon={item.icon} size={20} color="currentColor" strokeWidth={1.5} />
+                 
+                    <HugeiconsIcon icon={item.icon as any} size={20} color="currentColor" strokeWidth={1.5} />
+                 
                 </button>
-              ) : (
+             
                 <Link
                 //@ts-ignore
                   href={item.href}
@@ -501,9 +510,11 @@ const DesktopSidebar = React.memo(({
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   }`}
                 >
-                  <HugeiconsIcon icon={item.icon} size={20} color="currentColor" strokeWidth={1.5} />
+                 
+                    <HugeiconsIcon icon={item.icon as any} size={20} color="currentColor" strokeWidth={1.5} />
+                 
                 </Link>
-              )}
+             
               <div className="absolute left-full ml-4 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 top-1/2 transform -translate-y-1/2">
                 {item.name}
                 <div className="absolute right-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-r-4 border-transparent border-r-gray-900"></div>
@@ -546,6 +557,8 @@ export const Navbar: React.FC = React.memo(() => {
   const [isNotificationsOpen, setNotificationsOpen] = useState(() =>
     NavbarStorageManager.get(NOTIFICATIONS_STORAGE_KEY, false)
   );
+  
+  const [isAIModalOpen, setAIModalOpen] = useState(false);
   
   const markReadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pendingMarkReadRef = useRef<Set<string>>(new Set());
@@ -608,6 +621,14 @@ export const Navbar: React.FC = React.memo(() => {
     createModal.openPostModal();
   }, [createModal]);
 
+  const handleAIModalToggle = useCallback(() => {
+    setAIModalOpen(prev => !prev);
+  }, []);
+
+  const handleAIModalClose = useCallback(() => {
+    setAIModalOpen(false);
+  }, []);
+
   const handlePostCreated = useCallback(() => {
     console.log('Post created successfully!');
   }, []);
@@ -652,6 +673,7 @@ export const Navbar: React.FC = React.memo(() => {
           notificationPermission={notificationPermission}
           onRequestPermission={requestNotificationPermission}
           onCreateClick={handleCreateClick}
+          
         />
       )}
       
@@ -696,6 +718,7 @@ export const Navbar: React.FC = React.memo(() => {
                   onRequestPermission={requestNotificationPermission}
                   pathname={pathname}
                   onCreateClick={handleCreateClick}
+                  onAIModalToggle={handleAIModalToggle}
                 />
                 
                 {unreadCount > 0 && (
@@ -735,6 +758,12 @@ export const Navbar: React.FC = React.memo(() => {
         initialSpaceId={createModal.initialSpaceId}
         onPostCreated={handlePostCreated}
         onSpaceCreated={handleSpaceCreated}
+      />
+
+      {/* AI Modal */}
+      <AIModal
+        isOpen={isAIModalOpen}
+        onClose={handleAIModalClose}
       />
     </>
   );
