@@ -3,6 +3,64 @@ import { LibraryFile } from '@/components/library/types';
 import { supabase } from '@/utils/supabaseClient';
 import { getUserCreditSummary, getUserArchive } from '@/utils/creditEconomy';
 
+// Enhanced cache with TTL and memory management
+class ContextCache {
+  private cache = new Map<string, { context: OptimizedUserContext; timestamp: number; hits: number }>();
+  private maxSize = 100; // Prevent memory leaks
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  get(userId: string): OptimizedUserContext | null {
+    const cached = this.cache.get(userId);
+    
+    if (!cached) return null;
+    
+    if (Date.now() - cached.timestamp > this.CACHE_DURATION) {
+      this.cache.delete(userId);
+      return null;
+    }
+    
+    // Update hit count for LRU eviction
+    cached.hits++;
+    return cached.context;
+  }
+
+  set(userId: string, context: OptimizedUserContext): void {
+    // LRU eviction if cache is full
+    if (this.cache.size >= this.maxSize) {
+      const leastUsed = Array.from(this.cache.entries())
+        .sort(([,a], [,b]) => a.hits - b.hits)[0];
+      this.cache.delete(leastUsed[0]);
+    }
+    
+    this.cache.set(userId, {
+      context,
+      timestamp: Date.now(),
+      hits: 1
+    });
+  }
+
+  delete(userId: string): boolean {
+    return this.cache.delete(userId);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  getStats() {
+    return {
+      size: this.cache.size,
+      hitRate: this.calculateHitRate(),
+      entries: Array.from(this.cache.keys())
+    };
+  }
+
+  private calculateHitRate(): number {
+    // This would need to be implemented with actual hit/miss tracking
+    return 0;
+  }
+}
+
 // Token-optimized context data structure
 export interface OptimizedUserContext {
   // Core user info (always included)
@@ -43,11 +101,10 @@ export interface OptimizedUserContext {
   };
 }
 
-// Context cache to avoid repeated API calls
-const contextCache = new Map<string, { context: OptimizedUserContext; timestamp: number }>();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+// Enhanced cache instance
+const contextCache = new ContextCache();
 
-// Platform context for AI
+// Platform context for AI - moved to constant to avoid recreation
 export const PLATFORM_CONTEXT = `Stride Campus is a verified campus community platform for students. Key features:
 
 **Core Platform:**
@@ -75,25 +132,49 @@ export const PLATFORM_CONTEXT = `Stride Campus is a verified campus community pl
 
 **IMPORTANT:** All user data in the context below is REAL and from the database. Do not make up or hallucinate any numbers, stats, or credit information. Only reference what is actually provided.`;
 
+// Request deduplication
+const pendingRequests = new Map<string, Promise<OptimizedUserContext>>();
+
 /**
  * Fetch comprehensive user context with token optimization and caching
  */
 export async function fetchUserContext(user: User): Promise<OptimizedUserContext> {
   // Check cache first
   const cached = contextCache.get(user.id);
-  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-    return cached.context;
+  if (cached) {
+    return cached;
   }
 
+  // Deduplicate simultaneous requests
+  const pending = pendingRequests.get(user.id);
+  if (pending) {
+    return pending;
+  }
+
+  const request = performUserContextFetch(user);
+  pendingRequests.set(user.id, request);
+
   try {
-    // Fetch all data in parallel for efficiency
+    const context = await request;
+    return context;
+  } finally {
+    pendingRequests.delete(user.id);
+  }
+}
+
+/**
+ * Actual fetch implementation separated for clarity
+ */
+async function performUserContextFetch(user: User): Promise<OptimizedUserContext> {
+  try {
+    // Fetch all data in parallel with optimized queries
     const [
       creditSummary,
       userSpaces,
       userResources,
       userPosts,
       userArchive
-    ] = await Promise.all([
+    ] = await Promise.allSettled([
       getUserCreditSummary(user.id),
       fetchUserSpaces(user.id),
       fetchUserResources(user.id),
@@ -101,20 +182,18 @@ export async function fetchUserContext(user: User): Promise<OptimizedUserContext
       getUserArchive(user.id, 5) // Limit to 5 for summary
     ]);
 
-    // Get top resource categories
-    const categories = userResources.reduce((acc: Record<string, number>, resource) => {
-      const category = resource.file_category || 'other';
-      acc[category] = (acc[category] || 0) + 1;
-      return acc;
-    }, {});
+    // Process results with error handling for each
+    const creditData = creditSummary.status === 'fulfilled' ? creditSummary.value : null;
+    const spacesData = userSpaces.status === 'fulfilled' ? userSpaces.value : { total: 0, adminCount: 0, recent: [] };
+    const resourcesData = userResources.status === 'fulfilled' ? userResources.value : [];
+    const postsData = userPosts.status === 'fulfilled' ? userPosts.value : [];
+    const archiveData = userArchive.status === 'fulfilled' ? userArchive.value : { resources: [] };
 
-    const topCategories = Object.entries(categories)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 3)
-      .map(([category]) => category);
+    // Get top resource categories efficiently
+    const topCategories = getTopCategories(resourcesData);
 
     // Get recent transaction types
-    const recentActivity = creditSummary?.recentTransactions
+    const recentActivity = creditData?.recentTransactions
       ?.slice(0, 3)
       .map(t => t.category)
       .join(', ') || 'none';
@@ -128,56 +207,82 @@ export async function fetchUserContext(user: User): Promise<OptimizedUserContext
         verified: user.is_verified
       },
       spaces: {
-        joined: userSpaces.total,
-        admin: userSpaces.adminCount,
-        recent: userSpaces.recent.map(s => s.display_name)
+        joined: spacesData.total,
+        admin: spacesData.adminCount,
+        recent: spacesData.recent.map(s => s.display_name)
       },
       resources: {
-        uploaded: userResources.length,
-        purchased: userArchive.resources.length,
+        uploaded: resourcesData.length,
+        purchased: archiveData.resources?.length || 0,
         categories: topCategories
       },
       credits: {
-        level: creditSummary?.levelInfo.name || user.level_name,
+        level: creditData?.levelInfo?.name || user.level_name,
         balance: user.credits,
         recentActivity
       },
       social: {
-        posts: userPosts.length,
+        posts: postsData.length,
         followers: 0, // TODO: Add followers count when available in User interface
-        upvotes: userPosts.reduce((sum, post) => sum + (post.upvotes || 0), 0)
+        upvotes: postsData.reduce((sum, post) => sum + (post.upvotes || 0), 0)
       }
     };
 
     // Cache the result
-    contextCache.set(user.id, { context, timestamp: Date.now() });
+    contextCache.set(user.id, context);
     
     return context;
   } catch (error) {
     console.error('Error fetching user context:', error);
-    // Return minimal context on error
-    const fallbackContext: OptimizedUserContext = {
-      profile: {
-        username: user.username,
-        school: user.school_name || 'Unknown',
-        level: user.level_name,
-        credits: user.credits,
-        verified: user.is_verified
-      },
-      spaces: { joined: 0, admin: 0, recent: [] },
-      resources: { uploaded: 0, purchased: 0, categories: [] },
-      credits: { level: user.level_name, balance: user.credits, recentActivity: 'none' },
-      social: { posts: 0, followers: 0, upvotes: 0 }
-    };
     
-    // Cache fallback to avoid repeated errors
-    contextCache.set(user.id, { context: fallbackContext, timestamp: Date.now() });
+    // Return minimal context on error
+    const fallbackContext: OptimizedUserContext = createFallbackContext(user);
+    
+    // Cache fallback to avoid repeated errors (shorter TTL might be better here)
+    contextCache.set(user.id, fallbackContext);
     return fallbackContext;
   }
 }
 
 /**
- * Fetch user's spaces with role information
+ * Extract category calculation for better readability and performance
+ */
+function getTopCategories(resources: any[]): string[] {
+  if (!resources.length) return [];
+
+  const categories = resources.reduce((acc: Record<string, number>, resource) => {
+    const category = resource.file_category || 'other';
+    acc[category] = (acc[category] || 0) + 1;
+    return acc;
+  }, {});
+
+  return Object.entries(categories)
+    .sort(([,a], [,b]) => (b as number) - (a as number))
+    .slice(0, 3)
+    .map(([category]) => category);
+}
+
+/**
+ * Create fallback context for error scenarios
+ */
+function createFallbackContext(user: User): OptimizedUserContext {
+  return {
+    profile: {
+      username: user.username,
+      school: user.school_name || 'Unknown',
+      level: user.level_name,
+      credits: user.credits,
+      verified: user.is_verified
+    },
+    spaces: { joined: 0, admin: 0, recent: [] },
+    resources: { uploaded: 0, purchased: 0, categories: [] },
+    credits: { level: user.level_name, balance: user.credits, recentActivity: 'none' },
+    social: { posts: 0, followers: 0, upvotes: 0 }
+  };
+}
+
+/**
+ * Fetch user's spaces with role information - optimized query
  */
 async function fetchUserSpaces(userId: string): Promise<{
   total: number;
@@ -199,7 +304,7 @@ async function fetchUserSpaces(userId: string): Promise<{
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(5); // Reduced from 10 to 5 since we only use 3
 
     if (error) throw error;
 
@@ -218,15 +323,15 @@ async function fetchUserSpaces(userId: string): Promise<{
 }
 
 /**
- * Fetch user's uploaded resources
+ * Fetch user's uploaded resources - optimized with only needed fields
  */
 async function fetchUserResources(userId: string): Promise<any[]> {
   try {
     const { data, error } = await supabase
       .from('library')
-      .select('file_category, created_at')
+      .select('file_category')
       .eq('user_id', userId)
-      .limit(20); // Limit for performance
+      .limit(15); // Reduced from 20 since we only need categories
 
     if (error) throw error;
     return data || [];
@@ -237,16 +342,16 @@ async function fetchUserResources(userId: string): Promise<any[]> {
 }
 
 /**
- * Fetch user's posts with engagement metrics
+ * Fetch user's posts with engagement metrics - optimized
  */
 async function fetchUserPosts(userId: string): Promise<any[]> {
   try {
-    // Get posts first
+    // Get posts first with limit
     const { data: posts, error: postsError } = await supabase
       .from('posts')
-      .select('id, created_at')
+      .select('id')
       .eq('author_id', userId)
-      .limit(10);
+      .limit(5); // Reduced from 10
 
     if (postsError) throw postsError;
     
@@ -258,27 +363,25 @@ async function fetchUserPosts(userId: string): Promise<any[]> {
     const postIds = posts.map(post => post.id);
     const { data: votes, error: votesError } = await supabase
       .from('post_votes')
-      .select('post_id, vote_type')
+      .select('post_id')
       .in('post_id', postIds)
       .eq('vote_type', 1); // Only upvotes
     
     if (votesError) {
       console.error('Error fetching votes:', votesError);
-      // Return posts with 0 upvotes if votes query fails
       return posts.map(post => ({ ...post, upvotes: 0 }));
     }
     
-    // Count upvotes per post
-    const voteCounts = new Map<string, number>();
-    votes?.forEach(vote => {
-      const count = voteCounts.get(vote.post_id) || 0;
-      voteCounts.set(vote.post_id, count + 1);
-    });
+    // Count upvotes per post efficiently
+    const voteCounts = votes?.reduce((acc, vote) => {
+      acc[vote.post_id] = (acc[vote.post_id] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>) || {};
     
     // Combine posts with vote counts
     return posts.map(post => ({
       ...post,
-      upvotes: voteCounts.get(post.id) || 0
+      upvotes: voteCounts[post.id] || 0
     }));
     
   } catch (error) {
@@ -394,9 +497,17 @@ export function clearContextCache(userId?: string): void {
 /**
  * Get cache statistics for monitoring
  */
-export function getCacheStats(): { size: number; entries: string[] } {
-  return {
-    size: contextCache.size,
-    entries: Array.from(contextCache.keys())
-  };
+export function getCacheStats(): ReturnType<ContextCache['getStats']> {
+  return contextCache.getStats();
+}
+
+/**
+ * Prefetch user context for anticipated needs
+ */
+export function prefetchUserContext(user: User): void {
+  if (!contextCache.get(user.id)) {
+    fetchUserContext(user).catch(error => {
+      console.warn('Prefetch failed:', error);
+    });
+  }
 }

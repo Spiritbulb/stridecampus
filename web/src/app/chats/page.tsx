@@ -278,7 +278,7 @@ const ChatPageContent: React.FC = () => {
                 />
                 
                 {/* Messages Area - Scrollable middle section */}
-                <div className="flex-1 overflow-hidden pb-20 mb-28 md:pb-32">
+                <div className="flex-1 overflow-y-auto pb-20 mb-28 md:pb-32">
                   <MessageList
                     messages={messages}
                     currentUserId={user.id}
@@ -336,7 +336,7 @@ const ChatPageContent: React.FC = () => {
               />
               
               {/* Messages Area - Scrollable middle section */}
-              <div className="flex-1 overflow-hidden pb-20 mb-28 md:pb-32">
+              <div className="flex-1 overflow-y-auto pb-20 mb-28 md:pb-32">
                 <MessageList
                   messages={messages}
                   currentUserId={user.id}

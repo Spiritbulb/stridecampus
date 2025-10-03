@@ -86,7 +86,7 @@ export default function PostContent({ post }: PostContentProps) {
     <div className="ml-13">
       
       {post.content && (
-        <p className="text-gray-900 text-base mb-3 leading-normal whitespace-pre-wrap break-words">
+        <p className="text-gray-900 text-[17px] mb-3 leading-normal whitespace-pre-wrap break-words">
           {renderContentWithHighlights(post.content)}
         </p>
       )}

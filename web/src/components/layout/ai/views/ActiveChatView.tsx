@@ -1,20 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import { useChat } from '../hooks/useChat';
-import { Header } from '../Header';
-import { WelcomeMessage } from '../WelcomeMessage';
-import { MessageList } from '../MessageList';
+// ===========================
+// ActiveChatView.tsx - Modularized and optimized chat view
+// ===========================
+import React, { useState, useMemo, useCallback } from 'react';
 import { InputArea } from '../InputArea';
-import { Button } from '@/components/ui/button';
+import { useChat } from '../hooks/useChat';
 import { 
-  ArrowLeftIcon,
-  ChatBubbleLeftIcon,
-  EllipsisVerticalIcon,
-  ShareIcon,
-  DocumentTextIcon
-} from '@heroicons/react/24/outline';
+  ChatHeader, 
+  ChatMenu, 
+  MessageArea,
+  type Message,
+  type MessageStore,
+  type ChatHook
+} from '../components';
 
 interface ActiveChatViewProps {
   sessionId: string;
+  messageStore: MessageStore;
   onBack: () => void;
   onNewChat: () => void;
   className?: string;
@@ -22,37 +23,42 @@ interface ActiveChatViewProps {
 
 export const ActiveChatView: React.FC<ActiveChatViewProps> = ({
   sessionId,
+  messageStore,
   onBack,
   onNewChat,
   className = ''
 }) => {
   const [showChatMenu, setShowChatMenu] = useState(false);
   
-  const {
-    messages,
-    inputMessage,
-    isLoading,
-    sendMessage,
-    updateInputMessage,
-    messageStore,
-  } = useChat(sessionId);
+  // Use the real AI chat hook instead of manual state management
+  const chat: ChatHook = useChat(sessionId);
 
+  // Get current session and messages from store
   const currentSession = messageStore.activeSession;
+  const messages: Message[] = useMemo(() => {
+    if (!currentSession) return [];
+    return currentSession.messages.map((msg) => ({
+      ...msg,
+      timestamp: msg.created_at ? new Date(msg.created_at) : new Date()
+    }));
+  }, [currentSession]);
 
-  const handleSendMessage = async (content: string) => {
-    await sendMessage(content);
-  };
+  const handleSendMessage = useCallback(async (content: string) => {
+    if (!content.trim() || chat.isLoading) return;
+    
+    // Use the real AI chat functionality
+    await chat.sendMessage(content);
+  }, [chat.sendMessage, chat.isLoading]);
 
-  const handleShare = () => {
+  const handleShare = useCallback(() => {
     if (navigator.share && currentSession) {
       navigator.share({
         title: `Chat with Nia: ${currentSession.title}`,
-        text: `Check out my conversation with Nia on Stride Campus!`,
+        text: `Check out my conversation with Nia!`,
         url: window.location.href,
       }).catch(console.error);
     } else {
-      // Fallback: copy to clipboard
-      const chatText = messages.map(msg => 
+      const chatText = messages.map((msg) => 
         `${msg.isUser ? 'You' : 'Nia'}: ${msg.content}`
       ).join('\n\n');
       
@@ -62,120 +68,50 @@ export const ActiveChatView: React.FC<ActiveChatViewProps> = ({
         alert('Unable to copy chat');
       });
     }
-  };
+  }, [currentSession, messages]);
 
-  const getChatStats = () => {
-    if (!currentSession) return null;
-    
-    const userMessages = messages.filter(msg => msg.isUser).length;
-    const niaMessages = messages.filter(msg => !msg.isUser).length;
-    const totalWords = messages.reduce((sum, msg) => sum + msg.content.split(' ').length, 0);
-    
-    return {
-      userMessages,
-      niaMessages,
-      totalWords,
-      duration: messages.length > 0 ? 
-        Math.round((messages[messages.length - 1].timestamp.getTime() - messages[0].timestamp.getTime()) / (1000 * 60)) 
-        : 0
-    };
-  };
+  const handleMenuToggle = useCallback(() => {
+    setShowChatMenu(prev => !prev);
+  }, []);
 
-  const stats = getChatStats();
+  const handleMenuClose = useCallback(() => {
+    setShowChatMenu(false);
+  }, []);
 
   return (
-    <div className={`flex flex-col h-full bg-white ${className} overflow-hidden`}>
-      {/* Header - Sticky at top */}
-      <div className="sticky top-0 z-20 flex items-center justify-between p-4 border-b border-gray-200 bg-white flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={onBack}
-            variant="ghost"
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            <ArrowLeftIcon className="w-5 h-5" />
-          </Button>
-          
-          <div className="flex items-center gap-2">
-            <ChatBubbleLeftIcon className="w-5 h-5 text-gray-600" />
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900">
-                {currentSession?.title || 'Chat with Nia'}
-              </h1>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Button
-              onClick={() => setShowChatMenu(!showChatMenu)}
-              variant="ghost"
-              size="sm"
-            >
-              <EllipsisVerticalIcon className="w-5 h-5" />
-            </Button>
-            
-            {showChatMenu && (
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                <div className="py-1">
-                  <button
-                    onClick={() => {
-                      handleShare();
-                      setShowChatMenu(false);
-                    }}
-                    className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    <ShareIcon className="w-4 h-4" />
-                    Share Chat
-                  </button>
-                  <button
-                    onClick={() => {
-                      onNewChat();
-                      setShowChatMenu(false);
-                    }}
-                    className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    <DocumentTextIcon className="w-4 h-4" />
-                    New Chat
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Messages Area - Scrollable middle section */}
-      <div className="flex-1 overflow-hidden pb-20 mb-28 md:pb-32">
-        {messages.length === 0 && !isLoading ? (
-          <WelcomeMessage />
-        ) : (
-          <MessageList 
-            messages={messages} 
-            isLoading={isLoading} 
-          />
-        )}
-      </div>
-
-      {/* Input Area - Fixed above mobile footer */}
-      <div className="fixed bottom-16 left-0 right-0 md:sticky md:bottom-0 z-20">
-        <InputArea
-          value={inputMessage}
-          onChange={updateInputMessage}
-          onSend={handleSendMessage}
-          isLoading={isLoading}
+    <div className={`flex flex-col h-[80vh] bg-white ${className} overflow-hidden`}>
+      {/* Header */}
+      <div className="relative">
+        <ChatHeader
+          title={currentSession?.title}
+          onBack={onBack}
+          onMenuToggle={handleMenuToggle}
+          showMenu={showChatMenu}
+        />
+        
+        <ChatMenu
+          isOpen={showChatMenu}
+          onShare={handleShare}
+          onNewChat={onNewChat}
+          onClose={handleMenuClose}
         />
       </div>
 
-      {/* Click outside to close menu */}
-      {showChatMenu && (
-        <div 
-          className="fixed inset-0 z-0"
-          onClick={() => setShowChatMenu(false)}
-        />
-      )}
+      {/* Messages */}
+      <MessageArea
+        messages={messages}
+        isLoading={chat.isLoading}
+        emptyStateTitle="Start a conversation"
+        emptyStateSubtitle="Send a message to begin chatting with Nia"
+      />
+
+      {/* Input Area */}
+      <InputArea
+        value={chat.inputMessage}
+        onChange={chat.updateInputMessage}
+        onSend={handleSendMessage}
+        isLoading={chat.isLoading}
+      />
     </div>
   );
 };

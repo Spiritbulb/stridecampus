@@ -1,21 +1,20 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/utils/supabaseClient';
 import { Comment } from '@/utils/supabaseClient';
 import { LibraryFile } from '@/components/library/types';
 import { 
-  ArrowUp, 
-  ArrowDown, 
-  Reply, 
-  MoreHorizontal, 
+  Heart,
+  MessageCircle,
+  MoreHorizontal,
   FileText,
   X,
-  Send
+  Trash2,
+  Flag
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { formatDistanceToNow } from 'date-fns';
-import ResourceSelector from './ResourceSelector';
 import { useApp } from '@/contexts/AppContext';
+import { useRealtimeVoting } from '@/hooks/useRealtimeVoting';
 
 interface CommentComponentProps {
   comment: Comment;
@@ -23,6 +22,23 @@ interface CommentComponentProps {
   onCommentAdded: () => void;
   depth?: number;
 }
+
+// Format time to short format
+const formatTimeShort = (date: Date): string => {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  const diffWeeks = Math.floor(diffDays / 7);
+
+  if (diffSecs < 60) return `${diffSecs}s`;
+  if (diffMins < 60) return `${diffMins}m`;
+  if (diffHours < 24) return `${diffHours}h`;
+  if (diffDays < 7) return `${diffDays}d`;
+  return `${diffWeeks}w`;
+};
 
 export default function CommentComponent({ 
   comment, 
@@ -34,62 +50,131 @@ export default function CommentComponent({
   const [isReplying, setIsReplying] = useState(false);
   const [replyContent, setReplyContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedResources, setSelectedResources] = useState<LibraryFile[]>([]);
-  const [showResourceSelector, setShowResourceSelector] = useState(false);
   const [replies, setReplies] = useState<Comment[]>(comment.replies || []);
-  const [showReplies, setShowReplies] = useState(true);
+  const [showReplies, setShowReplies] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [isLiked, setIsLiked] = useState(comment.user_vote === 1);
+  const [likeCount, setLikeCount] = useState(comment.vote_count || 0);
 
-  const handleVote = async (commentId: string, voteType: number) => {
+  const isOwner = user && comment.author_id === user.id;
+
+  // Fetch accurate vote count on mount
+  useEffect(() => {
+    const fetchVoteCount = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('comment_votes')
+          .select('*', { count: 'exact', head: true })
+          .eq('comment_id', comment.id)
+          .eq('vote_type', 1);
+
+        if (error) throw error;
+        
+        if (count !== null) {
+          setLikeCount(count);
+        }
+      } catch (error) {
+        console.error('Error fetching vote count:', error);
+      }
+    };
+
+    fetchVoteCount();
+  }, [comment.id]);
+
+  // Set up realtime voting for this comment
+  const { isConnected } = useRealtimeVoting({
+    commentId: comment.id,
+    onVoteUpdate: (update) => {
+      // Only update if this is for our comment and is a comment vote
+      if (update.targetId !== comment.id || update.type !== 'comment') {
+        return;
+      }
+
+      console.log('🔄 Realtime vote update for comment:', comment.id, update);
+      
+      // Update vote count and user's vote state
+      if (update.action === 'INSERT') {
+        setLikeCount(prev => prev + 1);
+        if (update.userId === user?.id) {
+          setIsLiked(true);
+        }
+      } else if (update.action === 'DELETE') {
+        setLikeCount(prev => Math.max(0, prev - 1));
+        if (update.userId === user?.id) {
+          setIsLiked(false);
+        }
+      } else if (update.action === 'UPDATE') {
+        // Handle vote type changes if needed
+        if (update.userId === user?.id) {
+          setIsLiked(update.voteType === 1);
+        }
+      }
+    }
+  });
+
+  const handleLike = async () => {
     if (!user) {
       toast({
         title: 'Authentication required',
-        description: 'Please sign in to vote',
+        description: 'Please sign in to like',
         variant: 'destructive'
       });
       return;
     }
 
+    const newLikeState = !isLiked;
+    const previousLikeState = isLiked;
+    const previousCount = likeCount;
+    
+    // Optimistic update
+    setIsLiked(newLikeState);
+    setLikeCount(prev => newLikeState ? prev + 1 : Math.max(0, prev - 1));
+
     try {
-      // Check if user already voted
       const { data: existingVote } = await supabase
         .from('comment_votes')
-        .select('id, vote_type')
-        .eq('comment_id', commentId)
+        .select('id')
+        .eq('comment_id', comment.id)
         .eq('user_id', user.id)
         .single();
 
       if (existingVote) {
-        if (existingVote.vote_type === voteType) {
-          // Remove vote if clicking the same button again
-          await supabase
-            .from('comment_votes')
-            .delete()
-            .eq('id', existingVote.id);
-        } else {
-          // Update vote
-          await supabase
-            .from('comment_votes')
-            .update({ vote_type: voteType })
-            .eq('id', existingVote.id);
-        }
+        const { error } = await supabase
+          .from('comment_votes')
+          .delete()
+          .eq('id', existingVote.id);
+        
+        if (error) throw error;
       } else {
-        // Create new vote
-        await supabase
+        const { error } = await supabase
           .from('comment_votes')
           .insert({
-            comment_id: commentId,
+            comment_id: comment.id,
             user_id: user.id,
-            vote_type: voteType
+            vote_type: 1
           });
+        
+        if (error) throw error;
       }
 
-      // Refresh comment data
-      onCommentAdded();
+      // Fetch actual count after operation to ensure accuracy
+      const { count, error: countError } = await supabase
+        .from('comment_votes')
+        .select('*', { count: 'exact', head: true })
+        .eq('comment_id', comment.id)
+        .eq('vote_type', 1);
+
+      if (!countError && count !== null) {
+        setLikeCount(count);
+      }
     } catch (error) {
-      console.error('Error voting on comment:', error);
+      // Revert on error
+      setIsLiked(previousLikeState);
+      setLikeCount(previousCount);
+      console.error('Error liking comment:', error);
       toast({
         title: 'Error',
-        description: 'Failed to register vote',
+        description: 'Failed to update like',
         variant: 'destructive'
       });
     }
@@ -98,29 +183,13 @@ export default function CommentComponent({
   const handleReply = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user) {
-      toast({
-        title: 'Authentication required',
-        description: 'Please sign in to reply',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    if (!replyContent.trim()) {
-      toast({
-        title: 'Reply required',
-        description: 'Please write a reply',
-        variant: 'destructive'
-      });
-      return;
-    }
+    if (!user || !replyContent.trim()) return;
 
     setIsSubmitting(true);
 
     try {
-      // Create the reply
-      const { data: reply, error: replyError } = await supabase
+      // Insert the reply
+      const { data: reply, error } = await supabase
         .from('comments')
         .insert({
           content: replyContent,
@@ -130,51 +199,39 @@ export default function CommentComponent({
         })
         .select(`
           *,
-          author:users(full_name, avatar_url),
-          vote_count:comment_votes(count),
-          user_vote:comment_votes(vote_type),
-          resource_tags:resource_tags(resource:files(*))
+          author:users(full_name, avatar_url, username, checkmark)
         `)
         .single();
 
-      if (replyError) throw replyError;
+      if (error) throw error;
 
-      // Add resource tags if any
-      if (selectedResources.length > 0) {
-        const resourceTags = selectedResources.map(resource => ({
-          comment_id: reply.id,
-          resource_id: resource.id
-        }));
+      // Fetch accurate vote count for the new reply
+      const { count: voteCount } = await supabase
+        .from('comment_votes')
+        .select('*', { count: 'exact', head: true })
+        .eq('comment_id', reply.id)
+        .eq('vote_type', 1);
 
-        const { error: tagError } = await supabase
-          .from('resource_tags')
-          .insert(resourceTags);
+      // Check if current user has voted
+      const { data: userVote } = await supabase
+        .from('comment_votes')
+        .select('vote_type')
+        .eq('comment_id', reply.id)
+        .eq('user_id', user.id)
+        .single();
 
-        if (tagError) throw tagError;
-      }
-
-      // Process the reply data
       const processedReply = {
         ...reply,
-        vote_count: reply.vote_count?.[0]?.count || 0,
-        user_vote: reply.user_vote?.[0]?.vote_type || 0,
-        resource_tags: reply.resource_tags?.map((rt: any) => rt.resource) || []
+        vote_count: voteCount || 0,
+        user_vote: userVote?.vote_type || 0,
+        resource_tags: []
       };
 
-      // Add to local state
       setReplies([...replies, processedReply]);
-      
-      // Clear form
       setReplyContent('');
-      setSelectedResources([]);
       setIsReplying(false);
+      setShowReplies(true);
 
-      toast({
-        title: 'Success',
-        description: 'Reply added'
-      });
-
-      // Notify parent to refresh counts
       onCommentAdded();
     } catch (error) {
       console.error('Error creating reply:', error);
@@ -188,213 +245,198 @@ export default function CommentComponent({
     }
   };
 
-  const addResource = (resource: LibraryFile) => {
-    if (!selectedResources.find(r => r.id === resource.id)) {
-      setSelectedResources([...selectedResources, resource]);
-    }
-    setShowResourceSelector(false);
-  };
+  const handleDelete = async () => {
+    if (!window.confirm('Delete this comment?')) return;
 
-  const removeResource = (resourceId: string) => {
-    setSelectedResources(selectedResources.filter(r => r.id !== resourceId));
-  };
-
-  const fetchReplies = async () => {
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('comments')
-        .select(`
-          *,
-          author:users(full_name, avatar_url),
-          vote_count:comment_votes(count),
-          user_vote:comment_votes(vote_type),
-          resource_tags:resource_tags(resource:files(*))
-        `)
-        .eq('parent_id', comment.id)
-        .order('created_at', { ascending: true });
+        .delete()
+        .eq('id', comment.id);
 
       if (error) throw error;
 
-      const processedReplies = (data || []).map(reply => ({
-        ...reply,
-        vote_count: reply.vote_count?.[0]?.count || 0,
-        user_vote: reply.user_vote?.[0]?.vote_type || 0,
-        resource_tags: reply.resource_tags?.map((rt: any) => rt.resource) || []
-      }));
+      toast({
+        title: 'Comment deleted'
+      });
 
-      setReplies(processedReplies);
+      onCommentAdded();
     } catch (error) {
-      console.error('Error fetching replies:', error);
+      console.error('Error deleting comment:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete comment',
+        variant: 'destructive'
+      });
     }
   };
 
-  // Load replies if not already loaded
-  if (replies.length === 0 && comment.replies === undefined) {
-    fetchReplies();
-  }
-
-  const maxDepth = 8; // Maximum nesting depth
-  const shouldNest = depth < maxDepth;
+  const maxDepth = 3;
+  const canNest = depth < maxDepth;
 
   return (
-    <div className={`${shouldNest ? 'pl-6' : ''}`}>
-      <div className="border-l-2 border-gray-200 pl-4 py-2">
-        {/* Comment header */}
-        <div className="flex items-center text-sm text-gray-500 mb-2">
-          <span className="font-medium text-gray-900">{comment.author?.full_name}</span>
-          <span className="mx-1">•</span>
-          <span>{formatDistanceToNow(new Date(comment.created_at))} ago</span>
-        </div>
+    <div className={`${canNest && depth > 0 ? 'ml-10' : ''}`}>
+      <div className="flex gap-3 py-3">
+        {/* Avatar */}
+        <img 
+          src={comment.author?.avatar_url || '/default-avatar.png'} 
+          alt="Avatar" 
+          className="w-8 h-8 rounded-full object-cover flex-shrink-0" 
+        />
+        
+        <div className="flex-1 min-w-0">
+          {/* Comment content */}
+          <div className="mb-2">
+            <span className="font-semibold text-sm mr-2 flex items-center gap-1">
+              {comment.author?.full_name || 'Anonymous'}
+              {comment.author?.checkmark && <img src="/check.png" alt="Checkmark" className="w-4 h-4" />}
+            </span>
+            <span className="text-sm text-gray-900 whitespace-pre-wrap break-words">
+              {comment.content}
+            </span>
+          </div>
 
-        {/* Comment content */}
-        <div className="text-gray-800 mb-3 whitespace-pre-wrap">{comment.content}</div>
-
-        {/* Resource tags */}
-        {comment.resource_tags && comment.resource_tags.length > 0 && (
-          <div className="mb-3">
-            <div className="flex flex-wrap gap-2">
-              {comment.resource_tags.map(resource => (
-                <a
-                  key={resource.id}
-                  href={`https://media.stridecampus.com/${resource.filename}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full hover:bg-blue-200 transition-colors"
-                >
-                  <FileText size={12} />
-                  <span className="truncate max-w-xs">{resource.original_name}</span>
-                </a>
-              ))}
+          {/* Resource tags */}
+          {comment.resource_tags && comment.resource_tags.length > 0 && (
+            <div className="mb-2">
+              <div className="flex flex-wrap gap-1">
+                {comment.resource_tags.map(resource => (
+                  <a
+                    key={resource.id}
+                    href={`https://media.stridecampus.com/${resource.filename}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded hover:bg-gray-200"
+                  >
+                    <FileText size={10} />
+                    <span className="truncate max-w-[150px]">{resource.original_name}</span>
+                  </a>
+                ))}
+              </div>
             </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex items-center gap-4 text-xs text-gray-500">
+            <span>{formatTimeShort(new Date(comment.created_at))}</span>
+            
+            {likeCount > 0 && (
+              <button className="font-semibold hover:text-gray-700">
+                {likeCount} {likeCount === 1 ? 'like' : 'likes'}
+              </button>
+            )}
+            
+            <button 
+              onClick={() => setIsReplying(!isReplying)}
+              className="font-semibold hover:text-gray-700"
+            >
+              Reply
+            </button>
+
+            {isOwner && (
+              <div className="relative">
+                <button 
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="hover:text-gray-700"
+                >
+                  <MoreHorizontal size={14} />
+                </button>
+                
+                {showMenu && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setShowMenu(false)}
+                    />
+                    <div className="absolute left-0 mt-1 w-32 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                      <button
+                        onClick={handleDelete}
+                        className="w-full px-3 py-2 text-left text-xs hover:bg-gray-50 flex items-center gap-2 text-red-600"
+                      >
+                        <Trash2 size={12} />
+                        Delete
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
-        )}
 
-        {/* Comment actions */}
-        <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => handleVote(comment.id, 1)}
-              className={`p-1 rounded hover:bg-gray-100 ${comment.user_vote === 1 ? 'text-[#f23b36]' : 'text-gray-500'}`}
-            >
-              <ArrowUp size={16} />
-            </button>
-            <span className="text-xs font-medium min-w-[1.5rem] text-center">{comment.vote_count}</span>
-            <button
-              onClick={() => handleVote(comment.id, -1)}
-              className={`p-1 rounded hover:bg-gray-100 ${comment.user_vote === -1 ? 'text-blue-500' : 'text-gray-500'}`}
-            >
-              <ArrowDown size={16} />
-            </button>
-          </div>
+          {/* Reply input */}
+          {isReplying && (
+            <form onSubmit={handleReply} className="mt-3 flex gap-2">
+              <input
+                type="text"
+                value={replyContent}
+                onChange={(e) => setReplyContent(e.target.value)}
+                placeholder="Add a reply..."
+                className="flex-1 text-sm px-0 py-1 border-0 border-b border-gray-300 focus:outline-none focus:border-gray-400"
+                disabled={isSubmitting}
+                autoFocus
+              />
+              <button
+                type="submit"
+                disabled={isSubmitting || !replyContent.trim()}
+                className="text-sm font-semibold text-blue-500 hover:text-blue-600 disabled:opacity-50"
+              >
+                Post
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsReplying(false)}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+            </form>
+          )}
 
-          <button
-            onClick={() => setIsReplying(!isReplying)}
-            className="flex items-center gap-1 hover:text-gray-700"
-          >
-            <Reply size={16} />
-            <span>Reply</span>
-          </button>
-
-          {replies.length > 0 && (
+          {/* View replies button */}
+          {replies.length > 0 && !showReplies && (
             <button
-              onClick={() => setShowReplies(!showReplies)}
-              className="text-xs text-gray-500 hover:text-gray-700"
+              onClick={() => setShowReplies(true)}
+              className="mt-3 flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-gray-700"
             >
-              {showReplies ? 'Hide replies' : `Show ${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}`}
+              <div className="w-6 h-px bg-gray-300" />
+              View {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
             </button>
+          )}
+
+          {/* Nested replies */}
+          {showReplies && replies.length > 0 && (
+            <div className="mt-3">
+              {replies.map(reply => (
+                <CommentComponent
+                  key={reply.id}
+                  comment={reply}
+                  postId={postId}
+                  onCommentAdded={onCommentAdded}
+                  depth={depth + 1}
+                />
+              ))}
+              <button
+                onClick={() => setShowReplies(false)}
+                className="flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-gray-700 mt-2"
+              >
+                <div className="w-6 h-px bg-gray-300" />
+                Hide replies
+              </button>
+            </div>
           )}
         </div>
 
-        {/* Reply form */}
-        {isReplying && user && (
-          <div className="mb-4 mt-2">
-            <form onSubmit={handleReply} className="space-y-2">
-              <div>
-                <textarea
-                  value={replyContent}
-                  onChange={(e) => setReplyContent(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f23b36] focus:border-transparent"
-                  rows={2}
-                  placeholder="Write a reply..."
-                  disabled={isSubmitting}
-                />
-              </div>
-
-              {/* Selected resources */}
-              {selectedResources.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {selectedResources.map(resource => (
-                    <div key={resource.id} className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
-                      <FileText size={12} />
-                      <span className="truncate max-w-xs">{resource.original_name}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeResource(resource.id)}
-                        className="text-blue-700 hover:text-blue-900"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => setShowResourceSelector(true)}
-                  className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800"
-                >
-                  <FileText size={14} />
-                  Attach resource
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsReplying(false)}
-                    className="px-3 py-1 text-xs text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || !replyContent.trim()}
-                    className="flex items-center gap-1 px-3 py-1 text-xs bg-[#f23b36] text-white rounded-lg disabled:opacity-50"
-                  >
-                    <Send size={14} />
-                    {isSubmitting ? 'Posting...' : 'Reply'}
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Nested replies */}
-        {showReplies && replies.length > 0 && (
-          <div className="space-y-3 mt-3">
-            {replies.map(reply => (
-              <CommentComponent
-                key={reply.id}
-                comment={reply}
-                postId={postId}
-                onCommentAdded={onCommentAdded}
-                depth={depth + 1}
-              />
-            ))}
-          </div>
-        )}
+        {/* Like button */}
+        <button
+          onClick={handleLike}
+          className="flex-shrink-0 self-start mt-1"
+        >
+          <Heart 
+            size={12} 
+            className={isLiked ? 'fill-red-500 text-red-500' : 'text-gray-400'}
+          />
+        </button>
       </div>
-
-      {/* Resource selector modal */}
-      {showResourceSelector && (
-        <ResourceSelector
-          onSelect={addResource}
-          onClose={() => setShowResourceSelector(false)}
-          excludedResources={selectedResources.map(r => r.id)}
-        />
-      )}
     </div>
   );
 }

@@ -80,6 +80,8 @@ export interface Comment {
   author?: {
     full_name: string;
     avatar_url?: string;
+    checkmark?: boolean;
+    username?: string;
   };
   replies?: Comment[];
   resource_tags?: LibraryFile[];

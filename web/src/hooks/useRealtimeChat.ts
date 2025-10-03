@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useSafeApp } from '@/contexts/SafeAppContext';
+import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/utils/supabaseClient';
 import { Chat, Message, ChatParticipant } from '@/types/chat';
 
@@ -21,7 +21,7 @@ interface UseRealtimeChatProps {
 }
 
 export const useRealtimeChat = ({ currentUserId, isMobile }: UseRealtimeChatProps) => {
-  const { user } = useSafeApp();
+  const { user } = useApp();
   const [chats, setChats] = useState<Chat[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
