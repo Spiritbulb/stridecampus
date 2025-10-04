@@ -14,6 +14,8 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { Home01Icon, Book01Icon, PeerToPeer01FreeIcons, PlusSignIcon, RankingIcon, Message01Icon, Setting06FreeIcons, Settings01FreeIcons } from '@hugeicons/core-free-icons';
 import DonationSection from '@/components/common/DonationSection';
 import { AIModal } from '@/components/layout/ai';
+import { useAuth0 } from '@auth0/auth0-react';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 // Constants
 const NOTIFICATIONS_STORAGE_KEY = 'notificationsOpen';
@@ -539,8 +541,10 @@ DesktopSidebar.displayName = 'DesktopSidebar';
 // Main Navbar Component
 export const Navbar: React.FC = React.memo(() => {
   const router = useRouter();
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user: appUser, isLoading} = useApp();
+  const { logout } = useAuth0();
   const { handleNavigateToAuth } = useApp();
+  const { user, loading: authLoading } = useSupabaseUser(appUser?.email || null);
   const pathname = usePathname();
   const { 
     notifications, 
@@ -609,13 +613,13 @@ export const Navbar: React.FC = React.memo(() => {
   
   const handleSignOut = useCallback(async () => {
     try {
-      await signOut();
+      await logout();
       NavbarStorageManager.clear();
       router.push('/');
     } catch (error) {
       console.error('Sign out error:', error);
     }
-  }, [signOut, router]);
+  }, [logout, router]);
 
   const handleCreateClick = useCallback(() => {
     createModal.openPostModal();

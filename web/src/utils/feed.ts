@@ -179,7 +179,7 @@ export const fetchPosts = async (
           user_vote: userVoteResult.data?.vote_type || 0,
           hashtags: post.hashtags?.map((ht: any) => ht.hashtag) || [],
           mentions: post.mentions?.map((m: any) => m.mentioned_user) || [],
-          resource_tags: post.resource_tags?.map((rt: any) => rt.library_file) || []
+          resource_tags: post.resource_tags?.map((rt: any) => rt.library) || [] // Fixed: was rt.library_file
         };
       })
     );

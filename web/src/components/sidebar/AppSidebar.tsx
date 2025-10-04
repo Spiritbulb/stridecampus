@@ -6,9 +6,11 @@ import { useFeedData } from "@/hooks/useFeedData";
 import { useApp } from "@/contexts/AppContext";
 import { useRouter } from "next/navigation";
 import DesktopFooter from "../layout/DesktopFooter";
+import { useSupabaseUser } from "@/hooks/useSupabaseUser";
 
 export default function AppSidebar() {
-  const { user, isAuthenticated } = useApp();
+  const { user: appUser, isAuthenticated } = useApp();
+  const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const [selectedSpace, setSelectedSpace] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('new');
   const router = useRouter();
@@ -16,11 +18,11 @@ export default function AppSidebar() {
   const { posts, spaces, isLoading: feedLoading, refetch } = useFeedData(
     selectedSpace, 
     sortBy, 
-    isAuthenticated ? user : null
+    user?.email || null
   );
         
   const { handleVote, handleShare, joinSpace } = usePostActions(
-    isAuthenticated ? user : null, 
+    user || null, 
     refetch
   );
 

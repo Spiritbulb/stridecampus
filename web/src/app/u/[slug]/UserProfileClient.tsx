@@ -12,6 +12,7 @@ import PostCard from '@/components/feed/main/ProfilePostCard';
 import { useRouter } from 'next/navigation';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Message01Icon } from '@hugeicons/core-free-icons';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 interface ProfileData {
   user: User;
@@ -31,12 +32,15 @@ interface UserProfileClientProps {
 export default function UserProfileClient({ profileData: initialProfileData }: UserProfileClientProps) {
   // Use AppContext for all auth state and navigation
   const { 
-    user: currentUser, 
+    user: appUser, 
     isLoading: appIsLoading, 
     currentScreen, 
     handleNavigateToAuth, 
     isAuthenticated 
   } = useApp();
+
+const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
+const currentUser = user;
 
   const [profileData, setProfileData] = useState(initialProfileData);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
@@ -60,7 +64,7 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
 
   // Chat functionality
   const handleStartChat = useCallback(() => {
-    if (!isAuthenticated) {
+    if (!currentUser) {
       handleNavigateToAuth();
       return;
     }
@@ -82,10 +86,10 @@ export default function UserProfileClient({ profileData: initialProfileData }: U
   useEffect(() => {
     // Only redirect if app has finished loading and user is definitely not authenticated
     // Allow viewing profiles without authentication, but some features won't be available
-    if (!appIsLoading && !isAuthenticated && (isEditModalOpen || isFollowLoading)) {
+    if (!userLoading && !currentUser && (isEditModalOpen || isFollowLoading)) {
       handleNavigateToAuth();
     }
-  }, [appIsLoading, isAuthenticated, handleNavigateToAuth, isEditModalOpen, isFollowLoading]);
+  }, [userLoading, currentUser, handleNavigateToAuth, isEditModalOpen, isFollowLoading]);
 
   // Initialize form data when profile data changes
   useEffect(() => {

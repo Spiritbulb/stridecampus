@@ -7,10 +7,12 @@ import { uploadFile, uploadResourceLink, RESOURCE_TYPE_OPTIONS, SUPPORTED_FILE_T
 import { toast } from '@/hooks/use-toast';
 import { validateYouTubeUrl, extractYoutubeVideoId, validateUrl } from '@/components/library/utils';
 import { SUBJECT_OPTIONS } from '@/components/library/types';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 export default function UploadPage() {
   const router = useRouter();
-  const { user, isLoading: appIsLoading } = useApp();
+  const { user: appUser } = useApp();
+const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadForm, setUploadForm] = useState({
@@ -37,10 +39,10 @@ export default function UploadPage() {
 
   // Redirect if not authenticated
   useEffect(() => {
-    if (!appIsLoading && !user) {
-      router.push('/auth');
+    if (!userLoading && !user) {
+      router.push('/login');
     }
-  }, [appIsLoading, user, router]);
+  }, [userLoading, user, router]);
 
   // Extract YouTube video ID from filename as fallback
   const extractYoutubeIdFromFilename = (filename: string): string | null => {
@@ -117,7 +119,7 @@ export default function UploadPage() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || !appUser) return;
     
     if (!uploadForm.subject) {
       toast({
@@ -147,7 +149,7 @@ export default function UploadPage() {
         
         await uploadFile(
           uploadForm.file,
-          user.id,
+          user?.id,
           uploadForm.description,
           tagsToSend,
           uploadForm.subject,
@@ -192,7 +194,7 @@ export default function UploadPage() {
         
         await uploadResourceLink(
           finalUrl,
-          user.id,
+          user?.id,
           uploadForm.description,
           tagsToSend,
           uploadForm.subject,
@@ -243,7 +245,7 @@ export default function UploadPage() {
     }
   };
 
-  if (appIsLoading) {
+  if (userLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -254,7 +256,7 @@ export default function UploadPage() {
     );
   }
 
-  if (!user) {
+  if (!user || !appUser) {
     return null;
   }
 

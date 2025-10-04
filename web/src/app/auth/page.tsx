@@ -1,130 +1,234 @@
+// app/auth/page.tsx
 'use client';
-import React, { useState, useCallback, Suspense, useEffect } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
-import { toast } from '@/hooks/use-toast';
+import { useAuth0 } from '@auth0/auth0-react';
 import { AuthScreen } from '@/components/onboarding/AuthScreen';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { Layout } from '@/components/layout/Layout';
-import { supabase } from '@/utils/supabaseClient';
 
-// Create a component that uses useSearchParams and wrap it with Suspense
+declare global {
+  interface Window {
+    ReactNativeWebView?: {
+      postMessage: (message: string) => void;
+    };
+  }
+}
+
 function AuthPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const referralCode = searchParams.get('ref');
-  const { session, user, loading: authLoading, signUp, signIn } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
-  const [needsVerification, setNeedsVerification] = useState(false);
-  const [verificationEmail, setVerificationEmail] = useState<string>('');
+  const { 
+    isAuthenticated, 
+    user, 
+    isLoading: auth0Loading, 
+    getAccessTokenSilently,
+    error: auth0Error
+  } = useAuth0();
+  
+  const [isInWebView, setIsInWebView] = useState(false);
+  const [callbackError, setCallbackError] = useState<string | null>(null);
+  const [isProcessingAuth, setIsProcessingAuth] = useState(false);
 
-  // Check if current user needs email verification
+  // Detect WebView environment
   useEffect(() => {
-    if (user && session) {
-      if (session.user.email_confirmed_at) {
-        // User is verified, redirect to main app
-        router.push('/arena');
-      } else if (session.user.email) {
-        // User exists but not verified
-        setNeedsVerification(true);
-        setVerificationEmail(session.user.email);
+    const userAgent = navigator.userAgent || '';
+    setIsInWebView(userAgent.includes('StrideCampusApp'));
+  }, []);
+
+  // Check for Auth0 errors in URL
+  useEffect(() => {
+    const error = searchParams.get('error');
+    const errorDescription = searchParams.get('error_description');
+    
+    if (error) {
+      console.error('Auth0 error in URL:', error, errorDescription);
+      setCallbackError(errorDescription || `Authentication error: ${error}`);
+    }
+  }, [searchParams]);
+
+  // Handle Auth0 SDK errors
+  useEffect(() => {
+    if (auth0Error) {
+      console.error('Auth0 SDK error:', auth0Error);
+      setCallbackError(auth0Error.message || 'Authentication failed');
+    }
+  }, [auth0Error]);
+
+  // Handle successful authentication and redirect
+  useEffect(() => {
+    const handleSuccessfulAuth = async () => {
+      // Skip if already processing, still loading, not authenticated, or email not verified
+      if (isProcessingAuth || auth0Loading || !isAuthenticated || !user?.email_verified) {
+        return;
       }
-    }
-  }, [user, session, router]);
 
+      // Skip if there's an error
+      if (callbackError) {
+        return;
+      }
 
-  const handleSignUp = useCallback(async (email: string, password: string, username: string, full_name: string) => {
-    setIsLoading(true);
-    try {
-      const { error } = await signUp(email, password, username, full_name, referralCode || undefined);
-      if (error) throw error;
+      setIsProcessingAuth(true);
 
-      // Set verification state immediately
-      setNeedsVerification(true);
-      setVerificationEmail(email);
+      try {
+        console.log('✅ User authenticated successfully');
+        console.log('User info:', { 
+          email: user.email, 
+          verified: user.email_verified,
+          sub: user.sub 
+        });
 
-      toast({
-        title: 'Account created!',
-        description: 'Please check your email to verify your account.',
-      });
+        // Get access token
+        const token = await getAccessTokenSilently({
+          authorizationParams: {
+            audience: 'https://auth.stridecampus.com/api',
+            scope: 'openid profile email'
+          }
+        });
 
-    } catch (error) {
-      console.error('Signup error:', error);
-      setNeedsVerification(false);
-      setVerificationEmail('');
-      
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to sign up',
-        variant: 'destructive'
-      });
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [signUp, referralCode]);
+        console.log('✅ Access token obtained');
 
-  const handleSignIn = useCallback(async (email: string, password: string) => {
-    setIsLoading(true);
-    try {
-      const { error } = await signIn(email, password);
-      if (error) throw error;
-      
-      // Don't show success toast or redirect here - let the auth listener handle it
-      // This allows the verification check to happen first
-      
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to sign in',
-        variant: 'destructive'
-      });
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [signIn]);
+        // Handle WebView redirect
+        if (isInWebView && window.ReactNativeWebView) {
+          console.log('📱 Sending auth data to React Native WebView');
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'AUTH_SUCCESS',
+            token: token,
+            user: {
+              id: user.sub,
+              email: user.email,
+              name: user.name,
+              picture: user.picture
+            }
+          }));
+          return;
+        }
 
-  const handleBack = useCallback(() => {
+        // Handle deep link redirect
+        console.log('🔗 Attempting deep link redirect');
+        const deepLinkUrl = `stridecampus://auth?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(user.sub || '')}`;
+        
+        // Try to open the app
+        window.location.href = deepLinkUrl;
+        
+        // Fallback to web app after 2 seconds
+        setTimeout(() => {
+          console.log('⏰ Deep link timeout, redirecting to web app');
+          router.push('/arena');
+        }, 2000);
+
+      } catch (error: any) {
+        console.error('❌ Error in post-auth flow:', error);
+        setCallbackError(error.message || 'Failed to complete authentication');
+        setIsProcessingAuth(false);
+      }
+    };
+
+    handleSuccessfulAuth();
+  }, [
+    isAuthenticated, 
+    user, 
+    auth0Loading, 
+    isProcessingAuth,
+    callbackError,
+    isInWebView, 
+    router, 
+    getAccessTokenSilently
+  ]);
+
+  const handleBack = () => {
     router.push('/');
-  }, [router]);
+  };
 
-  const handleVerificationComplete = useCallback(() => {
-    setNeedsVerification(false);
-    setVerificationEmail('');
-    toast({
-      title: 'Email verified!',
-      description: 'Welcome to the platform.',
-    });
-    router.push('/arena');
-  }, [router]);
+  const handleRetry = () => {
+    setCallbackError(null);
+    setIsProcessingAuth(false);
+    // Clear URL params and reload
+    window.location.href = window.location.origin + '/auth';
+  };
 
-  if (authLoading) {
+  // Error state
+  if (callbackError) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <LoadingSpinner size="large" />
+        <div className="text-center space-y-4 max-w-md mx-4">
+          <div className="text-red-500 text-lg font-medium">Authentication Error</div>
+          <p className="text-muted-foreground">{callbackError}</p>
+          <div className="flex gap-4 justify-center">
+            <button 
+              onClick={handleRetry}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90"
+            >
+              Try Again
+            </button>
+            <button 
+              onClick={() => router.push('/')}
+              className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:opacity-90"
+            >
+              Go Home
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
+  // Loading states during callback processing
+  if (auth0Loading) {
+    const hasAuthParams = searchParams.has('code') && searchParams.has('state');
+    
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <LoadingSpinner size="large" />
+          <p className="text-lg font-medium">
+            {hasAuthParams ? 'Completing authentication...' : 'Loading...'}
+          </p>
+          {hasAuthParams && (
+            <p className="text-sm text-muted-foreground">
+              Please wait while we verify your credentials
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Redirecting state after successful auth
+  if (isAuthenticated && user?.email_verified && isProcessingAuth) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <LoadingSpinner size="large" />
+          <div className="space-y-2">
+            <p className="text-lg font-medium">
+              {isInWebView ? 'Connecting to app...' : 'Opening Stride Campus app...'}
+            </p>
+            {!isInWebView && (
+              <p className="text-sm text-muted-foreground">
+                If the app doesn't open, you'll be redirected to the web version.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show auth screen for unauthenticated users or unverified emails
   return (
     <Layout showNavigation={false}>
       <AuthScreen 
-        onSignUp={handleSignUp}
-        onSignIn={handleSignIn}
         onBack={handleBack}
         user={user}
         referralCode={referralCode || undefined}
-        isLoading={isLoading || authLoading}
-        needsVerification={needsVerification}
-        verificationEmail={verificationEmail}
-        onVerificationComplete={handleVerificationComplete}
+        isLoading={auth0Loading}
       />
     </Layout>
   );
 }
 
-// Main export with Suspense boundary
 export default function AuthPage() {
   return (
     <Suspense fallback={

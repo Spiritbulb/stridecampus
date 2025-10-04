@@ -5,6 +5,7 @@ import { X, Search, FileText, Check, Filter, Download } from 'lucide-react';
 import { getUserFiles } from '@/utils/r2';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { useApp } from '@/contexts/AppContext';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 interface ResourceSelectorProps {
   onSelect: (resource: LibraryFile) => void;
@@ -13,7 +14,8 @@ interface ResourceSelectorProps {
 }
 
 export default function ResourceSelector({ onSelect, onClose, excludedResources }: ResourceSelectorProps) {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const [resources, setResources] = useState<LibraryFile[]>([]);
   const [filteredResources, setFilteredResources] = useState<LibraryFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -60,7 +62,7 @@ export default function ResourceSelector({ onSelect, onClose, excludedResources 
   ];
 
   useEffect(() => {
-    if (user) {
+    if (user && appUser) {
       fetchResources();
     }
   }, [user]);
@@ -70,17 +72,17 @@ export default function ResourceSelector({ onSelect, onClose, excludedResources 
   }, [resources, searchQuery, selectedCategory, selectedSubject]);
 
   const fetchResources = async () => {
-    if (!user) return;
+    if (!user || !appUser) return;
     
     try {
       setIsLoading(true);
-      const result = await getUserFiles(user?.id);
+      const result = await getUserFiles(user?.id || '');
       
       if (result && 'files' in result) {
         // Filter out excluded resources and only show user's own files
         const userResources = result.files.filter(
           (file: LibraryFile) => 
-            file.user_id === user.id && 
+            file.user_id === user?.id && 
             !excludedResources.includes(file.id)
         );
         setResources(userResources);

@@ -12,6 +12,7 @@ import {
   ClockIcon,
   DocumentTextIcon
 } from '@heroicons/react/24/outline';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 interface ChatManagerProps {
   onSessionSelect: (sessionId: string) => void;
@@ -26,7 +27,8 @@ export const ChatManager: React.FC<ChatManagerProps> = ({
   onCreateNew,
   className = ''
 }) => {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+  const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const { sessions, stats, deleteSession, clearAllSessions, isRealtimeConnected } = useRealtimeSupabaseMessageStore(user?.id);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);

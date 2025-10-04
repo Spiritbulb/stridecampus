@@ -6,13 +6,15 @@ import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { Layout } from '@/components/layout/Layout';
 import { FullLeaderboard } from '@/components/dashboard/FullLeaderboard';
 import { useApp } from '@/contexts/AppContext';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 export default function LeaderboardPage() {
-  const { user, authLoading } = useApp();
+  const { user: appUser } = useApp();
+const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const { leaderboard, loading } = useLeaderboard(user?.id);
 
   // Show loading state while auth is loading
-  if (authLoading) {
+  if (userLoading) {
     return (
       <Layout>
         <div className="min-h-screen flex items-center justify-center bg-background">
@@ -26,7 +28,7 @@ export default function LeaderboardPage() {
   }
 
   // Redirect to auth if not logged in
-  if (!user) {
+  if (!user || !appUser) {
     return (
       <Layout>
         <div className="min-h-screen flex items-center justify-center bg-background">
@@ -61,7 +63,7 @@ export default function LeaderboardPage() {
           ) : (
             <FullLeaderboard 
               leaderboard={leaderboard} 
-              currentUserId={user.id}
+              currentUserId={user?.id}
               user={user}
             />
           )}

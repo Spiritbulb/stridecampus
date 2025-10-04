@@ -10,12 +10,15 @@ import { LibraryFile } from '@/components/library/types';
 import { CostBubbleWrapper } from '@/components/ui/CostBubble';
 import { calculateResourcePurchaseCost } from '@/utils/creditEconomy';
 import { formatFileSize, formatDate } from '@/components/library/utils';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
+import { useApp } from '@/contexts/AppContext';
 
 export default function ResourcePage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
-  
+  const { user: appUser } = useApp();
+  const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const [resource, setResource] = useState<LibraryFile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

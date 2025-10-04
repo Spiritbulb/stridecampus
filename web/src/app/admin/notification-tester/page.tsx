@@ -30,6 +30,7 @@ import {
   Database,
   Smartphone,
 } from 'lucide-react';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 interface TestForm {
   type: 'test' | 'message' | 'custom';
@@ -40,7 +41,8 @@ interface TestForm {
 }
 
 export default function NotificationSystemTester() {
-  const { user, isAuthenticated } = useApp();
+  const { user: appUser } = useApp();
+const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null); 
   const { toast } = useToast();
   
   const {
@@ -76,7 +78,7 @@ export default function NotificationSystemTester() {
   const [testResults, setTestResults] = useState<any[]>([]);
 
   // Simplified authorization - allow all authenticated users for testing
-  const isAuthorized = isAuthenticated && user;
+  const isAuthorized = appUser && user;
 
   useEffect(() => {
     if (isAuthorized) {
@@ -212,7 +214,7 @@ export default function NotificationSystemTester() {
     };
   };
 
-  if (!isAuthenticated) {
+  if (!appUser) {
     return (
       <div className="container mx-auto px-4 py-8">
         <Card className="max-w-md mx-auto">

@@ -5,6 +5,7 @@ import { Space } from '@/utils/supabaseClient';
 import { Camera, Lock, Globe, ArrowLeft, Check, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useApp } from '@/contexts/AppContext';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 interface SpaceCreationWizardProps {
   onSuccess: (space: Space) => void;
@@ -22,7 +23,8 @@ interface FormData {
 type Step = 'basic' | 'details' | 'privacy';
 
 export default function SpaceCreationWizard({ onSuccess, onCancel }: SpaceCreationWizardProps) {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentStep, setCurrentStep] = useState<Step>('basic');
@@ -154,7 +156,7 @@ export default function SpaceCreationWizard({ onSuccess, onCancel }: SpaceCreati
   };
 
   const handleSubmit = async () => {
-    if (!user) {
+    if (!user || !appUser) {
       toast({
         title: 'Authentication required',
         description: 'Please sign in to create a space',
@@ -197,7 +199,7 @@ export default function SpaceCreationWizard({ onSuccess, onCancel }: SpaceCreati
           display_name: formData.displayName.trim() || formData.name.trim(),
           description: formData.description.trim() || null,
           is_public: formData.isPublic,
-          creator_id: user.id
+          creator_id: user?.id
         })
         .select()
         .single();

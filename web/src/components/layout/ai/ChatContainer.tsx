@@ -6,6 +6,7 @@ import { useRealtimeSupabaseMessageStore } from '@/hooks/useRealtimeSupabaseMess
 import { useApp } from '@/contexts/AppContext';
 import { ChatListView } from './views/ChatListView';
 import { ActiveChatView } from './views/ActiveChatView';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 type ChatView = 'list' | 'chat';
 
@@ -22,10 +23,11 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
   initialView = 'list',
   initialSessionId
 }) => {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+  const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   
   // SINGLE source of truth for message store
-  const messageStore = useRealtimeSupabaseMessageStore(user?.id);
+  const messageStore = useRealtimeSupabaseMessageStore(user?.id || '');
   
   // Local UI state only
   const [currentView, setCurrentView] = useState<ChatView>(initialView);

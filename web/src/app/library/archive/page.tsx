@@ -8,9 +8,13 @@ import { ArchiveHeader } from '@/components/library/ArchiveHeader';
 import { ArchiveStats } from '@/components/library/ArchiveStats';
 import { getUserArchive } from '@/utils/creditEconomy';
 import { ArchiveResource } from '@/components/library/types';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
+import { useApp } from '@/contexts/AppContext';
 
 export default function ArchivePage() {
-  const { user, loading: authLoading } = useAuth();
+  const { loading: authLoading } = useAuth();
+  const { user: appUser } = useApp();
+  const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const [archiveResources, setArchiveResources] = useState<ArchiveResource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +26,7 @@ export default function ArchivePage() {
   });
 
   useEffect(() => {
-    if (user && !authLoading) {
+    if (user && appUser && !authLoading) {
       fetchArchiveData();
     }
   }, [user, authLoading]);

@@ -1,7 +1,9 @@
 import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/hooks/useSupabaseUser";
 
 export default function DesktopFooter () {
-    const { user } = useApp();
+    const { user: appUser } = useApp();
+const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
 
     return (
       <footer className="hidden md:block bg-card/30 backdrop-blur-sm mt-auto">
@@ -9,7 +11,7 @@ export default function DesktopFooter () {
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             
             <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6 text-sm">
-              {user && (
+              {user &&  (
                 <a 
                 href="/library" 
                 className="text-black/70 hover:text-black-800 dark:text-black-800 dark:hover:text-black-200 transition-colors duration-300 relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-px after:bg-current after:transition-all after:duration-300 hover:after:w-full"
@@ -25,7 +27,7 @@ export default function DesktopFooter () {
                 Profile
               </a>
               )}
-              {user && (
+              {user &&(
                 <a 
                 href="/referrals" 
                 className="text-black/70 hover:text-black-800 dark:text-black-800 dark:hover:text-black-200 transition-colors duration-300 relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-px after:bg-current after:transition-all after:duration-300 hover:after:w-full"

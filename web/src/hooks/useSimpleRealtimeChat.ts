@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/utils/supabaseClient';
 import { Chat, Message, ChatParticipant } from '@/types/chat';
+import { useSupabaseUser } from './useSupabaseUser';
 
 interface UseSimpleRealtimeChatProps {
   currentUserId: string;
@@ -9,7 +10,8 @@ interface UseSimpleRealtimeChatProps {
 }
 
 export const useSimpleRealtimeChat = ({ currentUserId, isMobile }: UseSimpleRealtimeChatProps) => {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+  const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
@@ -21,7 +23,7 @@ export const useSimpleRealtimeChat = ({ currentUserId, isMobile }: UseSimpleReal
 
   // Fetch user's chats
   const fetchChats = useCallback(async () => {
-    if (!user) return;
+    if (!user || !appUser) return;
 
     console.log('🔍 Fetching chats for user:', user.id);
     setLoading(true);
@@ -88,7 +90,7 @@ export const useSimpleRealtimeChat = ({ currentUserId, isMobile }: UseSimpleReal
 
   // Fetch messages for a chat
   const fetchMessages = useCallback(async (chatId: string) => {
-    if (!user) return;
+    if (!user || !appUser) return;
 
     console.log('🔍 Fetching messages for chat:', chatId);
     setLoading(true);
@@ -123,7 +125,7 @@ export const useSimpleRealtimeChat = ({ currentUserId, isMobile }: UseSimpleReal
 
   // Send a message
   const sendMessage = useCallback(async (chatId: string, message: string) => {
-    if (!user) return;
+    if (!user || !appUser) return;
 
     console.log('📤 Sending message:', { chatId, message, userId: user.id });
     try {
@@ -187,7 +189,7 @@ export const useSimpleRealtimeChat = ({ currentUserId, isMobile }: UseSimpleReal
 
   // Start a new chat
   const startChat = useCallback(async (otherUserId: string) => {
-    if (!user) return;
+    if (!user || !appUser) return;
 
     try {
       // Check if chat already exists
@@ -242,7 +244,7 @@ export const useSimpleRealtimeChat = ({ currentUserId, isMobile }: UseSimpleReal
 
   // Set up realtime subscriptions
   useEffect(() => {
-    if (!user) return;
+    if (!user || !appUser) return;
 
     console.log('🔌 Setting up realtime subscriptions for user:', user.id);
 

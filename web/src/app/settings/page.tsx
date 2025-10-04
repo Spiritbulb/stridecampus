@@ -1,10 +1,10 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+
 import { useApp } from '@/contexts/AppContext';
 import { useRouter } from 'next/navigation';
 import { useUnifiedNotifications } from '@/hooks/useUnifiedNotifications';
-import { usePageRefresh } from '@/hooks/usePageRefresh';
+
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { supabase } from '@/utils/supabaseClient';
 import { toast } from '@/hooks/use-toast';
@@ -17,10 +17,12 @@ import {
   PrivacySection,
   ThemeSection
 } from '@/components/settings';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 export default function SettingsPage() {
-  const { user, loading: authLoading, refreshUser } = useAuth();
-  const { handleNavigateToAuth, isAuthenticated } = useApp();
+  const { user: appUser } = useApp();
+const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
+  const { handleNavigateToAuth } = useApp();
   const router = useRouter();
   const {
     isSupported: pushSupported,
@@ -103,20 +105,13 @@ export default function SettingsPage() {
 
   // Redirect if not authenticated
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    if (!userLoading && !user) {
       handleNavigateToAuth();
     }
-  }, [authLoading, isAuthenticated, handleNavigateToAuth]);
+  }, [userLoading, user, handleNavigateToAuth]);
 
   // Refresh function for pull-to-refresh
-  const handleRefresh = useCallback(async () => {
-    if (user) {
-      await refreshUser();
-    }
-  }, [user, refreshUser]);
-
-  // Register refresh function for pull-to-refresh
-  usePageRefresh(handleRefresh);
+ 
 
   // Generic function to update any setting with optimistic updates
   const updateSetting = useCallback(async (key: string, value: any, additionalData?: Record<string, any>) => {
@@ -132,7 +127,7 @@ export default function SettingsPage() {
       const { error } = await supabase
         .from('users')
         .update(updateData)
-        .eq('id', user.id);
+        .eq('id', user?.id || appUser?.id);
 
       if (error) throw error;
 
@@ -140,7 +135,7 @@ export default function SettingsPage() {
       setDbState(prev => ({ ...prev, [key]: value }));
       
       // Refresh user data to ensure consistency
-      await refreshUser();
+     
       
       return true;
     } catch (error) {
@@ -163,7 +158,7 @@ export default function SettingsPage() {
         return newSet;
       });
     }
-  }, [user, dbState, refreshUser]);
+  }, [user, dbState, appUser]);
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,11 +175,11 @@ export default function SettingsPage() {
           school_name: profileForm.school_name,
           updated_at: new Date().toISOString()
         })
-        .eq('id', user.id);
+        .eq('id', user?.id || appUser?.id);
 
       if (error) throw error;
       
-      await refreshUser();
+     
       
       toast({
         title: "Profile updated",
@@ -302,7 +297,7 @@ export default function SettingsPage() {
         const { error } = await supabase
           .from('users')
           .delete()
-          .eq('id', user.id);
+          .eq('id', user?.id || appUser?.id);
         
         if (error) throw error;
         
@@ -323,7 +318,7 @@ export default function SettingsPage() {
   };
 
   // Loading state
-  if (authLoading) {
+  if (userLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="large" />
@@ -332,7 +327,7 @@ export default function SettingsPage() {
   }
 
   // Not authenticated
-  if (!user) {
+  if (!user || !appUser) {
     return null;
   }
 
@@ -391,7 +386,7 @@ export default function SettingsPage() {
 
             {activeTab === 'privacy' && (
               <PrivacySection
-                user={user}
+                user={user || appUser}
                 accountSettings={accountSettings}
                 pushSupported={pushSupported}
                 pushPermission={pushPermission}

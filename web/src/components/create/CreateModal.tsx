@@ -9,6 +9,7 @@ import { toast } from '@/hooks/use-toast';
 import { useApp } from '@/contexts/AppContext';
 import PostForm from './PostForm';
 import SpaceCreationWizard from './SpaceCreationWizard';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 interface CreateModalProps {
   isOpen: boolean;
@@ -29,23 +30,24 @@ export default function CreateModal({
   onPostCreated,
   onSpaceCreated
 }: CreateModalProps) {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+  const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [mode, setMode] = useState<CreateMode>(initialType);
 
   useEffect(() => {
-    if (isOpen && user) {
+    if (isOpen && user && appUser) {
       fetchSpaces();
     }
-  }, [isOpen, user]);
+  }, [isOpen, user, appUser]);
 
   useEffect(() => {
     setMode(initialType);
   }, [initialType]);
 
   const fetchSpaces = async () => {
-    if (!user) return;
+    if (!user || !appUser) return;
     
     try {
       setIsLoading(true);
@@ -59,7 +61,7 @@ export default function CreateModal({
             role
           )
         `)
-        .eq('space_memberships.user_id', user.id)
+        .eq('space_memberships.user_id', user?.id)
         .eq('is_public', true);
 
       if (spacesError) throw spacesError;

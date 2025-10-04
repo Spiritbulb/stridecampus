@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/utils/supabaseClient';
-import { Space } from '@/utils/supabaseClient';
+import { Space, User as SupabaseUser } from '@/utils/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Search, Users, Globe, Lock, Crown, Shield, User as UserIcon } from 'lucide-react';
 import SpaceCreationWizard from '@/components/create/SpaceCreationWizard';
 import { joinSpace, leaveSpace } from '@/utils/spaceMembership';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 interface SpaceWithMembership extends Space {
   user_role?: string;
@@ -20,8 +21,13 @@ interface SpaceWithMembership extends Space {
 type TabType = 'foryou' | 'public';
 
 export default function SpacesPage() {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const { toast } = useToast();
+  
+  // Fetch full Supabase user
+  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
   const [spaces, setSpaces] = useState<SpaceWithMembership[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,25 +35,56 @@ export default function SpacesPage() {
   const [activeTab, setActiveTab] = useState<TabType>('foryou');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // Debug logging
-  console.log('SpacesPage render - user:', user, 'isLoading:', isLoading);
-
+  // Fetch Supabase user data
   useEffect(() => {
-    console.log('useEffect triggered - user:', user);
-    if (!user) {
-      console.log('No user found, skipping fetchSpaces');
-      return;
-    }
+    const fetchSupabaseUser = async () => {
+      if (!user || !appUser) {
+        setLoadingUser(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', appUser.email)
+          .single();
+
+        if (error) {
+          console.error('Error fetching Supabase user:', error);
+          
+          // If user doesn't exist yet, show a helpful message
+          if (error.code === 'PGRST116') {
+            toast({
+              title: 'Profile Loading',
+              description: 'Your profile is being set up. Please refresh in a moment.',
+            });
+          }
+        } else {
+          setSupabaseUser(data);
+        }
+      } catch (error) {
+        console.error('Error fetching Supabase user:', error);
+      } finally {
+        setLoadingUser(false);
+      }
+    };
+
+    fetchSupabaseUser();
+  }, [user, appUser]);
+
+  // Fetch spaces
+  useEffect(() => {
+    if (!supabaseUser) return;
     
     const fetchSpaces = async () => {
       try {
-        console.log('Starting fetchSpaces for user:', user.id);
         setIsLoading(true);
         
         const { data: spacesData, error: spacesError } = await supabase
           .from('spaces')
           .select('*')
-          .or(`is_public.eq.true,creator_id.eq.${user.id}`);
+          .or(`is_public.eq.true,creator_id.eq.${supabaseUser.id}`);
 
         if (spacesError) throw spacesError;
 
@@ -66,7 +103,7 @@ export default function SpacesPage() {
                 .from('space_memberships')
                 .select('role')
                 .eq('space_id', space.id)
-                .eq('user_id', user.id)
+                .eq('user_id', supabaseUser.id)
                 .maybeSingle(),
               supabase
                 .from('posts')
@@ -78,7 +115,7 @@ export default function SpacesPage() {
             ]);
 
             let userRole = undefined;
-            if (space.creator_id === user.id) {
+            if (space.creator_id === supabaseUser.id) {
               userRole = 'admin';
             } else if (userMembershipResult.data) {
               userRole = userMembershipResult.data.role;
@@ -95,7 +132,6 @@ export default function SpacesPage() {
           })
         );
 
-        console.log('Successfully fetched spaces:', spacesWithCounts.length);
         setSpaces(spacesWithCounts);
       } catch (error) {
         console.error('Error fetching spaces:', error);
@@ -105,27 +141,21 @@ export default function SpacesPage() {
           variant: 'destructive'
         });
       } finally {
-        console.log('Setting isLoading to false');
         setIsLoading(false);
       }
     };
 
     fetchSpaces();
-  }, [user]);
-
-  // Debug: Log when user changes
-  useEffect(() => {
-    console.log('User dependency changed:', user?.id);
-  }, [user]);
+  }, [supabaseUser]);
 
   const refetchSpaces = async () => {
-    if (!user) return;
+    if (!supabaseUser) return;
     
     try {
       const { data: spacesData, error: spacesError } = await supabase
         .from('spaces')
         .select('*')
-        .or(`is_public.eq.true,creator_id.eq.${user.id}`);
+        .or(`is_public.eq.true,creator_id.eq.${supabaseUser.id}`);
 
       if (spacesError) throw spacesError;
 
@@ -144,7 +174,7 @@ export default function SpacesPage() {
               .from('space_memberships')
               .select('role')
               .eq('space_id', space.id)
-              .eq('user_id', user.id)
+              .eq('user_id', supabaseUser.id)
               .maybeSingle(),
             supabase
               .from('posts')
@@ -156,7 +186,7 @@ export default function SpacesPage() {
           ]);
 
           let userRole = undefined;
-          if (space.creator_id === user.id) {
+          if (space.creator_id === supabaseUser.id) {
             userRole = 'admin';
           } else if (userMembershipResult.data) {
             userRole = userMembershipResult.data.role;
@@ -185,11 +215,11 @@ export default function SpacesPage() {
   };
 
   const handleJoin = async (spaceId: string) => {
-    if (!user || actionLoading) return;
+    if (!supabaseUser || actionLoading) return;
     
     setActionLoading(spaceId);
     try {
-      const result = await joinSpace(spaceId, user.id, 'member');
+      const result = await joinSpace(spaceId, supabaseUser.id, 'member');
       
       if (result.success) {
         setSpaces(prev => prev.map(space => 
@@ -218,11 +248,11 @@ export default function SpacesPage() {
   };
 
   const handleLeave = async (spaceId: string) => {
-    if (!user || actionLoading) return;
+    if (!supabaseUser || actionLoading) return;
     
     setActionLoading(spaceId);
     try {
-      const result = await leaveSpace(spaceId, user.id);
+      const result = await leaveSpace(spaceId, supabaseUser.id);
       
       if (result.success) {
         setSpaces(prev => prev.map(space => 
@@ -286,12 +316,37 @@ export default function SpacesPage() {
     }
   };
 
-  // Show loading spinner if still loading OR if user is not available yet
-  if (isLoading || !user) {
-    console.log('Showing loading spinner - isLoading:', isLoading, 'user:', user);
+  // Show loading while auth or user data is loading
+  if (userLoading || loadingUser) {
     return (
       <div className="min-h-screen bg-white flex justify-center items-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#f23b36] border-t-transparent"></div>
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#f23b36] border-t-transparent mx-auto"></div>
+          <p className="text-gray-500 text-sm">Loading spaces...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show message if user data failed to load
+  if (!supabaseUser || !user || !appUser) {
+    return (
+      <div className="min-h-screen bg-white flex justify-center items-center">
+        <div className="text-center space-y-4 max-w-md mx-auto px-4">
+          <div className="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center">
+            <UserIcon className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900">Profile Not Found</h3>
+          <p className="text-gray-500 text-sm">
+            Your profile is still being set up. Please refresh the page in a moment.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-2.5 bg-[#f23b36] text-white rounded-full hover:bg-[#d93531] transition-colors text-sm font-semibold"
+          >
+            Refresh Page
+          </button>
+        </div>
       </div>
     );
   }
@@ -361,7 +416,11 @@ export default function SpacesPage() {
 
       {/* Spaces List */}
       <div className="max-w-2xl mx-auto">
-        {filteredAndSortedSpaces.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-16">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#f23b36] border-t-transparent mx-auto"></div>
+          </div>
+        ) : filteredAndSortedSpaces.length === 0 ? (
           <div className="text-center py-16 px-4">
             <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
               <Users className="w-8 h-8 text-gray-400" />

@@ -4,6 +4,7 @@ import { CostBubbleWrapper } from '@/components/ui/CostBubble';
 import { useApp } from '@/contexts/AppContext';
 import { checkUserCredits } from '@/utils/creditEconomy';
 import { CREDIT_CONFIG } from '@/utils/creditEconomy';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 interface InputAreaProps {
   value: string;
@@ -14,14 +15,15 @@ interface InputAreaProps {
 
 export const InputArea = ({ value, onChange, onSend, isLoading }: InputAreaProps) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+  const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const [hasEnoughCredits, setHasEnoughCredits] = useState(true);
   const NIA_MESSAGE_COST = CREDIT_CONFIG.SPEND.NIA_MESSAGE; // Cost per Nia message
 
   // Check if user has enough credits
   useEffect(() => {
     const checkCredits = async () => {
-      if (user) {
+      if (user && appUser) {
         const hasCredits = await checkUserCredits(user.id, NIA_MESSAGE_COST);
         setHasEnoughCredits(hasCredits);
       } else {
@@ -30,7 +32,7 @@ export const InputArea = ({ value, onChange, onSend, isLoading }: InputAreaProps
     };
     
     checkCredits();
-  }, [user, NIA_MESSAGE_COST]);
+  }, [user, appUser, NIA_MESSAGE_COST]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

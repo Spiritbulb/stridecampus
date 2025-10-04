@@ -10,6 +10,7 @@ import { LibraryHeader } from '@/components/library/LibraryHeader';
 import { SearchFilters } from '@/components/library/SearchFilters';
 import { ResourcesGrid } from '@/components/library/ResourcesGrid';
 import { LibraryFile } from '@/components/library/types';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 
 // Custom hook for debounced value
@@ -32,11 +33,10 @@ const useDebounce = (value: string, delay: number) => {
 export default function Library() {
   const router = useRouter();
   const { 
+    user: appUser,
     isLoading: appIsLoading, 
-    handleNavigateToAuth, 
-    user,
   } = useApp();
-  
+  const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const [files, setFiles] = useState<LibraryFile[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -139,12 +139,6 @@ export default function Library() {
     }
   }, [isFileLoading]);
 
-  useEffect(() => {
-    if (!appIsLoading && !user) {
-      handleNavigateToAuth();
-    }
-  }, [appIsLoading, user, handleNavigateToAuth]);
-
   const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);
   }, []);
@@ -193,11 +187,6 @@ export default function Library() {
         </div>
       </div>
     );
-  }
-
-  if (!user) {
-    handleNavigateToAuth();
-    return null;
   }
 
   return (

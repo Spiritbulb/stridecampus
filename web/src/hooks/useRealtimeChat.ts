@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/utils/supabaseClient';
 import { Chat, Message, ChatParticipant } from '@/types/chat';
+import { useSupabaseUser } from './useSupabaseUser';
 
 interface TypingUser {
   userId: string;
@@ -21,7 +22,8 @@ interface UseRealtimeChatProps {
 }
 
 export const useRealtimeChat = ({ currentUserId, isMobile }: UseRealtimeChatProps) => {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+  const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);

@@ -23,13 +23,15 @@ import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import PostContent from '@/components/feed/main/PostContent';
 import PostCard from '@/components/feed/main/PostCard';
 import PostHeader from '@/components/feed/main/PostHeader';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 export default function PostPage() {
   const params = useParams();
   // Ensure id is a string (it could be an array in some cases)
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const router = useRouter();
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const [postData, setPostData] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -137,7 +139,7 @@ export default function PostPage() {
   };
 
   const handleVote = async (postId: string, voteType: number) => {
-    if (!user) {
+    if (!user || !appUser) {
       toast({
         title: 'Authentication required',
         description: 'Please sign in to vote',
@@ -152,7 +154,7 @@ export default function PostPage() {
         .from('post_votes')
         .select('vote_type')
         .eq('post_id', postId)
-        .eq('user_id', user.id)
+        .eq('user_id', user?.id)
         .single();
 
       let newVoteType = voteType;
@@ -168,7 +170,7 @@ export default function PostPage() {
           .from('post_votes')
           .update({ vote_type: newVoteType })
           .eq('post_id', postId)
-          .eq('user_id', user.id);
+          .eq('user_id', user?.id);
 
         if (error) throw error;
       } else {
@@ -177,7 +179,7 @@ export default function PostPage() {
           .from('post_votes')
           .insert({
             post_id: postId,
-            user_id: user.id,
+            user_id: user?.id,
             vote_type: voteType
           });
 
@@ -215,7 +217,7 @@ export default function PostPage() {
         .from('post_shares')
         .insert({
           post_id: postId,
-          user_id: user?.id || null
+          user_id: user?.id || null || appUser?.id
         });
 
       if (error) throw error;
@@ -261,7 +263,7 @@ export default function PostPage() {
     );
   }
 
-  if (!postData) {
+  if (!postData || !user || !appUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -290,7 +292,7 @@ export default function PostPage() {
         </button>
 
         {/* Post content */}
-        <PostHeader post={postData} user={user}/>
+        <PostHeader post={postData} user={user || appUser}/>
         <PostContent post={postData}/>
         {/* Comment section */}
         <CommentSection

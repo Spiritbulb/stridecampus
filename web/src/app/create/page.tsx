@@ -8,9 +8,11 @@ import { toast } from '@/hooks/use-toast';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ResourceSelector from '@/components/feed/ResourceSelector';
 import { useApp } from '@/contexts/AppContext';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 function CreatePage() {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const [spaces, setSpaces] = useState<Space[]>([]);

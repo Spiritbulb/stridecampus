@@ -13,6 +13,7 @@
 		"cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts"
 	},
 	"dependencies": {
+		"@auth0/auth0-react": "^2.5.0",
 		"@auth0/nextjs-auth0": "^4.10.0",
 		"@google/generative-ai": "^0.24.1",
 		"@heroicons/react": "^2.2.0",

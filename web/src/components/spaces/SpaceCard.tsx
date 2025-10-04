@@ -14,6 +14,7 @@ import {
   User as UserIcon,
   MoreVertical
 } from 'lucide-react';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 interface SpaceCardProps {
   space: Space & {
@@ -28,12 +29,13 @@ interface SpaceCardProps {
 }
 
 export default function SpaceCard({ space, onJoin, onLeave, onUpdate }: SpaceCardProps) {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+  const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleJoin = async () => {
-    if (!user) return;
+    if (!user || !appUser) return;
     
     setIsLoading(true);
     try {

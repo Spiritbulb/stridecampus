@@ -8,6 +8,7 @@ import { toast } from '@/hooks/use-toast';
 import CommentComponent from './CommentComponent';
 import ResourceSelector from './ResourceSelector';
 import { useApp } from '@/contexts/AppContext';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 interface CommentSectionProps {
   postId: string;
@@ -17,14 +18,15 @@ interface CommentSectionProps {
 }
 
 export default function CommentSection({ postId, comments, isLoading, onCommentAdded }: CommentSectionProps) {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const [commentContent, setCommentContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedResources, setSelectedResources] = useState<LibraryFile[]>([]);
   const [showResourceSelector, setShowResourceSelector] = useState(false);
 
   const handleSubmit = async () => {
-    if (!user) {
+    if (!user || !appUser) {
       toast({
         title: 'Authentication required',
         description: 'Please sign in to comment',
@@ -43,7 +45,7 @@ export default function CommentSection({ postId, comments, isLoading, onCommentA
         .insert({
           content: commentContent,
           post_id: postId,
-          author_id: user.id
+          author_id: user?.id
         })
         .select()
         .single();
@@ -126,7 +128,7 @@ export default function CommentSection({ postId, comments, isLoading, onCommentA
       </div>
 
       {/* Comment input - Fixed at bottom */}
-      {user ? (
+      {user && appUser ? (
         <div className="border-t border-gray-200 bg-white px-4 py-3">
           {/* Selected resources */}
           {selectedResources.length > 0 && (

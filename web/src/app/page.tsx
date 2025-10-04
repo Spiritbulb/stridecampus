@@ -13,9 +13,11 @@ import {
 import { useApp } from '@/contexts/AppContext';
 import { useRouter } from 'next/navigation';
 import FeedPage from '@/components/feed/FeedPage';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 export default function Home() {
-  const { user, authLoading } = useApp();
+  const { user: appUser } = useApp();
+  const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const router = useRouter();
   const feedRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -38,7 +40,7 @@ export default function Home() {
   }, [user]);
   
   // Show loading state while auth is loading
-  if (authLoading) {
+  if (userLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -58,13 +60,13 @@ export default function Home() {
           <header className="mb-16 text-center">
             <h1 className="text-4xl md:text-5xl font-light text-foreground mb-4">
               Welcome back,{' '}
-              <span className="font-medium">{user.username || user.email}</span>
+              <span className="font-medium">{user.username || user.email || appUser?.name}</span>
             </h1>
             
             {/* Credits */}
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-muted rounded-full">
               <Coins className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium text-foreground">{user.credits || 50} Credits</span>
+              <span className="font-medium text-foreground">{user.credits} Credits</span>
             </div>
           </header>
 

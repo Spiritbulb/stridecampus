@@ -15,6 +15,7 @@ import MessageInput from '@/components/chat/MessageInput';
 import UserSearchScreen from '@/components/chat/UserSearchScreen';
 import ChatsList from '@/components/chat/ChatsList';
 import RealtimeDebugger from '@/components/chat/RealtimeDebugger';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 interface PageProps {
   params?: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -22,7 +23,8 @@ interface PageProps {
 }
 
 const ChatPageContent: React.FC = () => {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const searchParams = useSearchParams();
   
   // Custom hooks
@@ -193,7 +195,7 @@ const ChatPageContent: React.FC = () => {
   }, [error, setError]);
 
   // Loading screen for unauthenticated users
-  if (!user) {
+  if (!user || !appUser) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="text-center">
@@ -242,7 +244,7 @@ const ChatPageContent: React.FC = () => {
             <ChatsList
               chats={chats}
               activeChat={activeChat}
-              currentUserId={user.id}
+              currentUserId={user?.id}
               loading={loading}
               isInitialized={isInitialized}
               onSelectChat={handleSelectChat}
@@ -281,7 +283,7 @@ const ChatPageContent: React.FC = () => {
                 <div className="flex-1 overflow-y-auto pb-20 mb-28 md:pb-32">
                   <MessageList
                     messages={messages}
-                    currentUserId={user.id}
+                    currentUserId={user?.id}
                     loading={loading}
                     messagesEndRef={messagesEndRef}
                   />
@@ -318,7 +320,7 @@ const ChatPageContent: React.FC = () => {
             <ChatsList
               chats={chats}
               activeChat={activeChat}
-              currentUserId={user.id}
+              currentUserId={user?.id}
               loading={loading}
               isInitialized={isInitialized}
               onSelectChat={handleSelectChat}
@@ -339,7 +341,7 @@ const ChatPageContent: React.FC = () => {
               <div className="flex-1 overflow-y-auto pb-20 mb-28 md:pb-32">
                 <MessageList
                   messages={messages}
-                  currentUserId={user.id}
+                  currentUserId={user?.id}
                   loading={loading}
                   messagesEndRef={messagesEndRef}
                 />

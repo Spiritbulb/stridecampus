@@ -10,6 +10,7 @@ import { usePostActions } from '@/hooks/usePostActions';
 import { Post } from '@/utils/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { usePageRefresh } from '@/hooks/usePageRefresh';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 
 
@@ -18,13 +19,13 @@ export default function FeedPage() {
 
   // Use AppContext for all auth state and navigation
   const { 
-    user, 
+    user: appUser, 
     isLoading: appIsLoading, 
     currentScreen, 
     handleNavigateToAuth, 
     isAuthenticated 
   } = useApp();
-
+const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const [selectedSpace, setSelectedSpace] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('all');
   const router = useRouter();
@@ -79,11 +80,12 @@ export default function FeedPage() {
   }, [router]);
 
   // Only fetch data if user is authenticated
-  const { posts, spaces, isLoading: feedLoading, refetch } = useFeedData(
-    selectedSpace, 
-    sortBy, 
-    isAuthenticated ? user : null
-  );
+
+const { posts, spaces, isLoading, refetch } = useFeedData(
+  selectedSpace, 
+  sortBy, 
+  user?.email || null
+);
 
   const handleRefresh = useCallback(async () => {
     await refetch();
@@ -94,7 +96,7 @@ export default function FeedPage() {
   usePageRefresh(handleRefresh);
   
   const { handleVote, handleShare, joinSpace } = usePostActions(
-    isAuthenticated ? user : null, 
+    user || null, 
     refetch
   );
 
@@ -119,7 +121,7 @@ export default function FeedPage() {
   }
 
   // Show feed loading state only on initial load, not during refetches
-  if (feedLoading && posts.length === 0) {
+  if (isLoading && posts.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="large" />
@@ -148,7 +150,7 @@ export default function FeedPage() {
             onShare={handleShare}
             user={user}
             onShowCreatePost={openCreatePost}
-            isLoading={feedLoading}
+            isLoading={isLoading}
           />
         </div>
       </div>

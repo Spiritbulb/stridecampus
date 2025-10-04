@@ -2,6 +2,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { supabase, type Post, type PostVote, type CommentVote } from '@/utils/supabaseClient';
 import { useApp } from '@/contexts/AppContext';
+import { useSupabaseUser } from './useSupabaseUser';
 
 interface RealtimePostsOptions {
   spaceId?: string;
@@ -16,7 +17,8 @@ interface RealtimePostsOptions {
 }
 
 export function useRealtimePosts(options: RealtimePostsOptions = {}) {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+  const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const channelsRef = useRef<Map<string, any>>(new Map());
   const {
     spaceId,
@@ -41,7 +43,7 @@ export function useRealtimePosts(options: RealtimePostsOptions = {}) {
 
   // Set up realtime subscriptions
   useEffect(() => {
-    if (!user) {
+    if (!user || !appUser) {
       cleanup();
       return;
     }

@@ -5,9 +5,11 @@ import { useApp } from '@/contexts/AppContext';
 import { chargeNiaMessageCredits, checkUserCredits, awardNiaChatBonus, generateNiaChatBonus } from '@/utils/creditEconomy';
 import { CREDIT_CONFIG } from '@/utils/creditEconomy';
 import { useSupabaseMessageStore } from '@/hooks/useSupabaseMessageStore';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 export const useChat = (sessionId?: string) => {
-  const { user } = useApp(); // Get user from context
+  const { user: appUser } = useApp(); // Get user from context
+  const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const messageStore = useSupabaseMessageStore(user?.id);
   
   const [state, setState] = useState<ChatState>({

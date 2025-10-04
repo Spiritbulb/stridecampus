@@ -3,6 +3,7 @@ import { useEffect, useCallback, useState, useRef } from 'react';
 import { supabase } from '@/utils/supabaseClient';
 import { useApp } from '@/contexts/AppContext';
 import { ChatSession } from './useSupabaseMessageStore';
+import { useSupabaseUser } from './useSupabaseUser';
 
 interface AIMessage {
   id: string;
@@ -24,7 +25,8 @@ interface RealtimeAIChatOptions {
 }
 
 export function useRealtimeAIChats(options: RealtimeAIChatOptions = {}) {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+  const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const channelsRef = useRef<Map<string, any>>(new Map());
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
@@ -53,7 +55,7 @@ export function useRealtimeAIChats(options: RealtimeAIChatOptions = {}) {
 
   // Set up realtime subscriptions
   useEffect(() => {
-    if (!user) {
+    if (!user || !appUser) {
       cleanup();
       return;
     }

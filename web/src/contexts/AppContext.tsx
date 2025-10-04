@@ -1,36 +1,31 @@
 'use client';
-import React, { createContext, useContext, useReducer, useEffect, useCallback, useMemo, useRef, useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { Session } from '@supabase/supabase-js';
-import { User } from '@/utils/supabaseClient';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/utils/supabaseClient';
 
 type ScreenType = 'auth' | 'welcome-credits' | 'dashboard';
+
+interface AppUser {
+  id: string;
+  email: string;
+  name?: string;
+  picture?: string;
+  email_verified?: boolean;
+  nickname?: string;
+  sub?: string;
+}
 
 interface AppState {
   currentScreen: ScreenType;
   isTransitioning: boolean;
-  isLoading: boolean;
   justSignedUp: boolean;
-  lastAuthCheck: number;
-  requiresEmailVerification: boolean;
-  // Added user state
-  user: User | null;
-  session: Session | null;
-  authLoading: boolean;
 }
 
 type AppAction =
   | { type: 'SET_SCREEN'; payload: ScreenType }
   | { type: 'SET_TRANSITIONING'; payload: boolean }
-  | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_JUST_SIGNED_UP'; payload: boolean }
-  | { type: 'SET_LAST_AUTH_CHECK'; payload: number }
-  | { type: 'SET_REQUIRES_EMAIL_VERIFICATION'; payload: boolean }
-  | { type: 'SET_USER'; payload: User | null }
-  | { type: 'SET_SESSION'; payload: Session | null }
-  | { type: 'SET_AUTH_LOADING'; payload: boolean }
-  | { type: 'RESET_STATE' }
   | { type: 'BATCH_UPDATE'; payload: Partial<AppState> };
 
 interface AppContextType extends AppState {
@@ -38,88 +33,26 @@ interface AppContextType extends AppState {
   handleScreenTransition: (nextScreen: ScreenType) => void;
   handleSuccessfulSignUp: () => void;
   handleNavigateToAuth: () => void;
-  checkAuthState: () => void;
-  // Convenience getters
+  // Auth0 pass-through
+  user: AppUser | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
   needsEmailVerification: boolean;
+  loginWithRedirect: (options?: any) => Promise<void>;
+  logout: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Constants
-const SCREEN_CACHE_KEY = 'app_currentScreen';
-const APP_STATE_CACHE_KEY = 'app_state';
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-const AUTH_CHECK_THROTTLE = 1000; // 1 second
 const TRANSITION_DELAY = 300;
+const SCREEN_CACHE_KEY = 'app_currentScreen';
 
 const initialState: AppState = {
   currentScreen: 'dashboard',
   isTransitioning: false,
-  isLoading: true,
   justSignedUp: false,
-  lastAuthCheck: 0,
-  requiresEmailVerification: false,
-  user: null,
-  session: null,
-  authLoading: true,
 };
 
-// Optimized storage operations with error handling and debouncing
-class StorageManager {
-  private static writeTimeouts = new Map<string, NodeJS.Timeout>();
-  
-  static read<T>(key: string, defaultValue: T): T {
-    if (typeof window === 'undefined') return defaultValue;
-    
-    try {
-      const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : defaultValue;
-    } catch {
-      return defaultValue;
-    }
-  }
-  
-  static write(key: string, value: any, debounceMs = 100): void {
-    if (typeof window === 'undefined') return;
-    
-    // Clear existing timeout
-    const existingTimeout = this.writeTimeouts.get(key);
-    if (existingTimeout) {
-      clearTimeout(existingTimeout);
-    }
-    
-    // Set new debounced write
-    const timeout = setTimeout(() => {
-      try {
-        localStorage.setItem(key, JSON.stringify(value));
-        this.writeTimeouts.delete(key);
-      } catch (error) {
-        console.warn(`Failed to persist ${key}:`, error);
-      }
-    }, debounceMs);
-    //@ts-ignore
-    this.writeTimeouts.set(key, timeout);
-  }
-  
-  static clear(key: string): void {
-    if (typeof window === 'undefined') return;
-    
-    try {
-      localStorage.removeItem(key);
-      // Clear any pending writes
-      const timeout = this.writeTimeouts.get(key);
-      if (timeout) {
-        clearTimeout(timeout);
-        this.writeTimeouts.delete(key);
-      }
-    } catch (error) {
-      console.warn(`Failed to clear ${key}:`, error);
-    }
-  }
-}
-
-// Optimized reducer with batch updates
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'SET_SCREEN':
@@ -130,71 +63,158 @@ function appReducer(state: AppState, action: AppAction): AppState {
       if (state.isTransitioning === action.payload) return state;
       return { ...state, isTransitioning: action.payload };
       
-    case 'SET_LOADING':
-      if (state.isLoading === action.payload) return state;
-      return { ...state, isLoading: action.payload };
-      
     case 'SET_JUST_SIGNED_UP':
       if (state.justSignedUp === action.payload) return state;
       return { ...state, justSignedUp: action.payload };
       
-    case 'SET_LAST_AUTH_CHECK':
-      return { ...state, lastAuthCheck: action.payload };
-      
-    case 'SET_REQUIRES_EMAIL_VERIFICATION':
-      if (state.requiresEmailVerification === action.payload) return state;
-      return { ...state, requiresEmailVerification: action.payload };
-
-    case 'SET_USER':
-      if (state.user === action.payload) return state;
-      return { ...state, user: action.payload };
-
-    case 'SET_SESSION':
-      if (state.session === action.payload) return state;
-      return { ...state, session: action.payload };
-
-    case 'SET_AUTH_LOADING':
-      if (state.authLoading === action.payload) return state;
-      return { ...state, authLoading: action.payload };
-      
     case 'BATCH_UPDATE':
-      // Only update if there are actual changes
       const hasChanges = Object.keys(action.payload).some(
         key => state[key as keyof AppState] !== action.payload[key as keyof AppState]
       );
       if (!hasChanges) return state;
       return { ...state, ...action.payload };
       
-    case 'RESET_STATE':
-      return { 
-        ...initialState, 
-        isLoading: false, 
-        lastAuthCheck: Date.now(),
-        user: null,
-        session: null,
-        authLoading: false
-      };
-      
     default:
       return state;
   }
 }
 
-// Load persisted state with validation
+// Load only the current screen from cache
 function loadPersistedState(): Partial<AppState> {
   if (typeof window === 'undefined') return {};
-
-  // Try new cache format first
-  const cached = StorageManager.read<Partial<AppState>>(APP_STATE_CACHE_KEY, {});
-  if (cached?.lastAuthCheck && Date.now() - cached.lastAuthCheck < CACHE_DURATION) {
-    // Don't persist user/session data for security
-    const { user, session, authLoading, ...safeCached } = cached;
-    return safeCached;
+  
+  try {
+    const savedScreen = localStorage.getItem(SCREEN_CACHE_KEY);
+    if (savedScreen && ['auth', 'welcome-credits', 'dashboard'].includes(savedScreen)) {
+      return { currentScreen: savedScreen as ScreenType };
+    }
+  } catch {
+    // Ignore storage errors
   }
+  
+  return {};
+}
 
-  // Fallback to legacy screen cache
-  const savedScreen = StorageManager.read(SCREEN_CACHE_KEY, null) as unknown as ScreenType;
-  return savedScreen ? { currentScreen: savedScreen } : {};
+// Sync Auth0 user with Supabase
+async function syncUserWithSupabase(auth0User: any) {
+  try {
+    if (!auth0User?.email) {
+      console.warn('⚠️ No email provided for user sync');
+      return;
+    }
+
+    // Check if user exists by email (not by Auth0 ID)
+    const { data: existingUser, error: fetchError } = await supabase
+      .from('users')
+      .select('id, email, username, is_verified, last_login_date')
+      .eq('email', auth0User.email)
+      .single();
+
+    // PGRST116 = no rows returned (user doesn't exist)
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('❌ Error checking user:', fetchError);
+      return;
+    }
+
+    // Extract school info from email if it's a .edu address
+    const emailParts = auth0User.email.split('@');
+    const domain = emailParts[1];
+    const isSchoolEmail = domain?.endsWith('.edu');
+    
+    const schoolDomain = isSchoolEmail ? domain : null;
+    const schoolName = isSchoolEmail 
+      ? domain.split('.edu')[0].split('.').map((s: string) => 
+          s.charAt(0).toUpperCase() + s.slice(1)
+        ).join(' ')
+      : null;
+
+    if (!existingUser) {
+      // Generate unique username from email
+      const baseUsername = auth0User.nickname || emailParts[0];
+      const randomSuffix = Math.floor(Math.random() * 10000);
+      const username = `${baseUsername}${randomSuffix}`.toLowerCase().replace(/[^a-z0-9_]/g, '');
+
+      // Generate unique referral code
+      const referralCode = `${username.substring(0, 4)}${Date.now().toString(36)}`.toUpperCase();
+
+      // Create new user with proper schema fields
+      const { error: insertError } = await supabase
+        .from('users')
+        .insert({
+          email: auth0User.email,
+          auth0_sub: auth0User.sub, // Store Auth0 ID as text (optional)
+          username: username,
+          full_name: auth0User.name || auth0User.email.split('@')[0],
+          avatar_url: auth0User.picture || null,
+          school_email: isSchoolEmail ? auth0User.email : null,
+          school_domain: schoolDomain,
+          school_name: schoolName,
+          credits: 50, // Welcome credits
+          level_name: 'Freshman',
+          level_points: 0,
+          referral_code: referralCode,
+          is_verified: auth0User.email_verified || false,
+          checkmark: false,
+          login_streak: 1,
+          last_login_date: new Date().toISOString(),
+          email_notifications: true,
+          push_notifications: true,
+          marketing_emails: true,
+          profile_visibility: 'public',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (insertError) {
+        console.error('❌ Error creating user in Supabase:', insertError);
+      } else {
+        console.log('✅ User created in Supabase:', auth0User.email);
+        console.log('🎁 Welcome credits awarded: 50');
+      }
+    } else {
+      // Update last login and login streak
+      const today = new Date().toISOString().split('T')[0];
+      const lastLogin = existingUser.last_login_date 
+        ? new Date(existingUser.last_login_date).toISOString().split('T')[0]
+        : null;
+
+      const updates: any = {
+        is_verified: auth0User.email_verified || existingUser.is_verified,
+        updated_at: new Date().toISOString()
+      };
+
+      // Update login streak if it's a new day
+      if (lastLogin !== today) {
+        updates.last_login_date = new Date().toISOString();
+        
+        // Check if streak continues (last login was yesterday)
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        
+        if (lastLogin === yesterdayStr) {
+          // Continue streak - will be incremented by trigger
+          console.log('🔥 Login streak continues');
+        } else if (lastLogin && lastLogin < yesterdayStr) {
+          // Streak broken - will be reset to 1 by trigger
+          console.log('💔 Login streak reset');
+        }
+      }
+
+      const { error: updateError } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', existingUser.id);
+
+      if (updateError) {
+        console.error('❌ Error updating user in Supabase:', updateError);
+      } else {
+        console.log('✅ User login recorded:', auth0User.email);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error syncing user with Supabase:', error);
+  }
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -202,63 +222,63 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(
     appReducer,
     initialState,
-    (init) => ({
-      ...init,
-      ...loadPersistedState(),
-    })
+    (init) => ({ ...init, ...loadPersistedState() })
   );
   
-  const { session, user, loading: authLoading } = useAuth();
+  const { 
+    user: auth0User, 
+    isAuthenticated, 
+    isLoading,
+    loginWithRedirect: auth0Login,
+    logout: auth0Logout
+  } = useAuth0();
 
-  // Refs for tracking state to prevent unnecessary effects
-  const authStateRef = useRef({ session, user, loading: authLoading });
-  const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const isInitializedRef = useRef(false);
+  // Transform Auth0 user to AppUser format
+  const user: AppUser | null = useMemo(() => {
+    if (!auth0User) return null;
+    return {
+      id: auth0User.sub || '',
+      email: auth0User.email || '',
+      name: auth0User.name,
+      picture: auth0User.picture,
+      email_verified: auth0User.email_verified,
+      nickname: auth0User.nickname,
+      sub: auth0User.sub
+    };
+  }, [auth0User]);
 
-  // Sync auth state from useAuth hook to context
+  const needsEmailVerification = useMemo(() => 
+    isAuthenticated && user && !user.email_verified,
+    [isAuthenticated, user]
+  );
+
+  // Sync user with Supabase when authenticated
   useEffect(() => {
-    const prevAuth = authStateRef.current;
-    const authChanged = (
-      prevAuth.session !== session || 
-      prevAuth.user !== user || 
-      prevAuth.loading !== authLoading
-    );
-
-    if (authChanged) {
-      authStateRef.current = { session, user, loading: authLoading };
-      
-      dispatch({ type: 'BATCH_UPDATE', payload: {
-        user,
-        session,
-        authLoading
-      }});
+    if (isAuthenticated && auth0User && auth0User.email_verified) {
+      syncUserWithSupabase(auth0User);
     }
-  }, [session, user, authLoading]);
+  }, [isAuthenticated, auth0User]);
 
-  // Memoized screen transition handler
+  // Screen transition handler
   const handleScreenTransition = useCallback((nextScreen: ScreenType) => {
     if (state.currentScreen === nextScreen) return;
     
-    // Clear any existing transition timeout
-    if (transitionTimeoutRef.current) {
-      clearTimeout(transitionTimeoutRef.current);
-    }
     dispatch({ type: 'SET_TRANSITIONING', payload: true });
-    //@ts-ignore
-    transitionTimeoutRef.current = setTimeout(() => {
-      dispatch({ type: 'BATCH_UPDATE', payload: { 
-        currentScreen: nextScreen, 
-        isTransitioning: false 
-      }});
+    
+    setTimeout(() => {
+      dispatch({ 
+        type: 'BATCH_UPDATE', 
+        payload: { 
+          currentScreen: nextScreen, 
+          isTransitioning: false 
+        }
+      });
     }, TRANSITION_DELAY);
   }, [state.currentScreen]);
 
-  // Memoized sign up handler
+  // Sign up success handler
   const handleSuccessfulSignUp = useCallback(() => {
-    dispatch({ type: 'BATCH_UPDATE', payload: {
-      justSignedUp: true,
-      lastAuthCheck: Date.now()
-    }});
+    dispatch({ type: 'SET_JUST_SIGNED_UP', payload: true });
     handleScreenTransition('welcome-credits');
   }, [handleScreenTransition]);
 
@@ -267,120 +287,72 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     router.push('/auth');
   }, [router]);
 
-  // Check auth state manually - simplified to avoid conflicts
-  const checkAuthState = useCallback(() => {
-    const now = Date.now();
-    if (now - state.lastAuthCheck < AUTH_CHECK_THROTTLE) return;
-    
-    dispatch({ type: 'SET_LAST_AUTH_CHECK', payload: now });
-    
-    if (state.session && state.user) {
-      // Check if email needs verification
-      const needsVerification = !state.session.user.email_confirmed_at;
-      dispatch({ type: 'SET_REQUIRES_EMAIL_VERIFICATION', payload: needsVerification });
-      
-      // Only handle screen transitions if we're not already on the right screen
-      // and not in the middle of email verification
-      if (!needsVerification && state.justSignedUp) {
-        handleScreenTransition('welcome-credits');
-      }
-    } else {
-      // Not authenticated - let Next.js router handle navigation
-      dispatch({ type: 'SET_REQUIRES_EMAIL_VERIFICATION', payload: false });
+  // Auth0 wrapper methods
+  const loginWithRedirect = useCallback(async (options?: any) => {
+    try {
+      await auth0Login({
+        authorizationParams: {
+          redirect_uri: window.location.origin + '/auth'
+        },
+        ...options
+      });
+    } catch (error) {
+      console.error('Auth0 login error:', error);
+      throw error;
     }
-  }, [state.session, state.user, state.lastAuthCheck, state.justSignedUp, handleScreenTransition]);
+  }, [auth0Login]);
 
-  // Simplified auth state change handling
+  const logout = useCallback(() => {
+    // Clear local state
+    dispatch({ type: 'SET_JUST_SIGNED_UP', payload: false });
+    
+    // Logout from Auth0
+    auth0Logout({
+      logoutParams: {
+        returnTo: window.location.origin
+      }
+    });
+  }, [auth0Logout]);
+
+  // Persist current screen
   useEffect(() => {
-    const prevAuth = authStateRef.current;
-    const authChanged = (
-      prevAuth.session !== session || 
-      prevAuth.user !== user || 
-      prevAuth.loading !== authLoading
-    );
-    
-    // Skip if no auth changes and already initialized
-    if (!authChanged && isInitializedRef.current) return;
-    
-    // Handle initial load - show loading state until auth is determined
-    if (!isInitializedRef.current) {
-      if (authLoading) {
-        // Still loading, don't change screen yet
-        return;
-      }
-      
-      isInitializedRef.current = true;
-      dispatch({ type: 'SET_LOADING', payload: false });
-      
-      // Only check auth state on initial load, let individual pages handle their own logic
-      if (session && user) {
-        const needsVerification = !session.user.email_confirmed_at;
-        dispatch({ type: 'SET_REQUIRES_EMAIL_VERIFICATION', payload: needsVerification });
-      }
-      return;
+    try {
+      localStorage.setItem(SCREEN_CACHE_KEY, state.currentScreen);
+    } catch {
+      // Ignore storage errors
     }
-    
-    // Update auth state ref
-    authStateRef.current = { session, user, loading: authLoading };
-    
-    // For subsequent changes, just update the verification status
-    if (session && user) {
-      const needsVerification = !session.user.email_confirmed_at;
-      dispatch({ type: 'SET_REQUIRES_EMAIL_VERIFICATION', payload: needsVerification });
-    } else {
-      dispatch({ type: 'SET_REQUIRES_EMAIL_VERIFICATION', payload: false });
+  }, [state.currentScreen]);
+
+  // Handle post-signup flow
+  useEffect(() => {
+    if (state.justSignedUp && isAuthenticated && user?.email_verified) {
+      handleScreenTransition('welcome-credits');
     }
-  }, [session, user, authLoading]);
+  }, [state.justSignedUp, isAuthenticated, user, handleScreenTransition]);
 
-  // Persist state changes (debounced) - excluding sensitive data
-  useEffect(() => {
-    if (!isInitializedRef.current) return;
-    
-    const stateToPersist = {
-      currentScreen: state.currentScreen,
-      justSignedUp: state.justSignedUp,
-      lastAuthCheck: state.lastAuthCheck,
-      requiresEmailVerification: state.requiresEmailVerification,
-      // Don't persist user/session for security
-    };
-    
-    StorageManager.write(APP_STATE_CACHE_KEY, stateToPersist);
-  }, [state.currentScreen, state.justSignedUp, state.lastAuthCheck, state.requiresEmailVerification]);
-
-  // Cleanup timeouts on unmount
-  useEffect(() => {
-    return () => {
-      if (transitionTimeoutRef.current) {
-        clearTimeout(transitionTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Memoized convenience getters
-  const isAuthenticated = useMemo(() => !!(state.user && state.session), [state.user, state.session]);
-  const needsEmailVerification = useMemo(() => 
-    isAuthenticated && !state.session?.user.email_confirmed_at, 
-    [isAuthenticated, state.session]
-  );
-
-  // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo<AppContextType>(() => ({
     ...state,
     dispatch,
     handleScreenTransition,
     handleSuccessfulSignUp,
     handleNavigateToAuth,
-    checkAuthState,
+    user,
     isAuthenticated,
-    needsEmailVerification,
+    isLoading,
+    needsEmailVerification: !!needsEmailVerification,
+    loginWithRedirect,
+    logout,
   }), [
     state, 
     handleScreenTransition, 
     handleSuccessfulSignUp, 
-    handleNavigateToAuth, 
-    checkAuthState,
+    handleNavigateToAuth,
+    user,
     isAuthenticated,
-    needsEmailVerification
+    isLoading,
+    needsEmailVerification,
+    loginWithRedirect,
+    logout
   ]);
 
   return (

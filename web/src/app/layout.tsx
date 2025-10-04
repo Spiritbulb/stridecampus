@@ -10,6 +10,7 @@ import type { Metadata } from 'next'
 import { PWAProvider } from '@/contexts/PWAProvider'
 import { Toaster } from '@/components/ui/toaster'
 import { InfoBanner } from '@/components/InfoBanner'
+import { Auth0Provider } from '@/contexts/AuthProvider';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -113,10 +114,18 @@ export default function RootLayout({
         <meta property="twitter:title" content="Stride Campus" />
         <meta property="twitter:description" content="Where student life meets collaboration. Join your campus community today." />
         <meta property="twitter:image" content="/og-image.jpg" />
+
+        <script
+  defer
+  data-website-id="68e0ca7eaacbdea3d77b6517"
+  data-domain="app.stridecampus.com"
+  src="https://datafa.st/js/script.js">
+</script>
       </head>
       <body className={`${poppins.className} antialiased`}>
         <PWAProvider />
         <ThemeProvider>
+          <Auth0Provider>
           <AppProvider>
             <RefreshProvider>
               <AuthAwareLayout>
@@ -125,8 +134,9 @@ export default function RootLayout({
               </AuthAwareLayout>
             </RefreshProvider>
             <Toaster />
-          </AppProvider>
-        </ThemeProvider>
+            </AppProvider>
+          </Auth0Provider>
+          </ThemeProvider>
       </body>
     </html>
   )

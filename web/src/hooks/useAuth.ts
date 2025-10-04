@@ -1,205 +1,144 @@
-import { useState, useEffect, useCallback } from 'react';
-import {
-  fetchUserProfile,
-  updateLoginStreak,
-  initializeAuth,
-  getUserByUsername,
-  signUp,
-  signIn,
-  signOut,
-  updateUser,
-  refreshUser,
-  setupAuthListener,
-  userProfileCache
-} from '@/utils/auth';
-import { supabase, type User } from '@/utils/supabaseClient';
-import { Session } from '@supabase/supabase-js';
-import { isValidSchoolEmail, isUsernameAvailable } from '@/utils/auth';
-import { useExpoPushNotifications } from './useExpoPushNotifications';
+// hooks/useAuth.ts
+import { useAuth0 } from '@auth0/auth0-react';
+import { useEffect, useState, useMemo } from 'react';
+import { supabase } from '@/utils/supabaseClient';
+import type { User } from '@/utils/supabaseClient';
 
+/**
+ * Custom hook that wraps Auth0 and provides Supabase user data
+ * Maintains compatibility with existing Supabase-based code
+ */
 export function useAuth() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const { 
+    user: auth0User, 
+    isAuthenticated, 
+    isLoading: auth0Loading,
+    getAccessTokenSilently,
+    loginWithRedirect,
+    logout: auth0Logout
+  } = useAuth0();
+
+  const [supabaseUser, setSupabaseUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [initialized, setInitialized] = useState(false);
-  
-  // Get notification hook for FCM token sync
-  const { syncTokenWhenUserLogsIn } = useExpoPushNotifications();
+  const [error, setError] = useState<string | null>(null);
 
-  // Initialize auth state
+  // Fetch Supabase user when Auth0 user is authenticated
   useEffect(() => {
-    let isMounted = true;
-    let timeoutId: NodeJS.Timeout;
+    const fetchSupabaseUser = async () => {
+      if (!isAuthenticated || !auth0User?.email) {
+        setSupabaseUser(null);
+        setLoading(false);
+        return;
+      }
 
-    const init = async () => {
       try {
-        const { session: freshSession, user: freshUser } = await initializeAuth();
-        if (isMounted) {
-          setSession(freshSession);
-          setUser(freshUser);
-        }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-        if (isMounted) {
-          setSession(null);
-          setUser(null);
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-          setInitialized(true);
-        }
-      }
-    };
-//@ts-ignore
-    timeoutId = setTimeout(() => {
-      if (isMounted && !initialized) {
-        console.warn('Auth initialization timeout');
-        setLoading(false);
-        setInitialized(true);
-      }
-    }, 10000);
-
-    init();
-
-    return () => {
-      isMounted = false;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, []);
-
-  // Listen for auth changes
-  useEffect(() => {
-    if (!initialized) return;
-
-    const subscription = setupAuthListener(async (event, newSession) => {
-      console.log('Auth state changed:', event, newSession?.user?.id);
-      
-      setSession(newSession);
-      
-      if (event === 'SIGNED_IN' && newSession?.user) {
         setLoading(true);
-        try {
-          const userProfile = await fetchUserProfile(newSession.user.id);
-          setUser(userProfile);
-          
-          // Sync FCM token when user logs in
-          console.log('🔄 User signed in, syncing FCM token...');
-          syncTokenWhenUserLogsIn(newSession.user.id).catch(error => {
-            console.error('Background FCM token sync failed:', error);
-          });
-          
-          // Update login streak in background
-          updateLoginStreak(newSession.user.id).catch(error => {
-            console.error('Background login streak update failed:', error);
-          });
-        } finally {
-          setLoading(false);
+        
+        const { data, error: fetchError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', auth0User.email)
+          .single();
+
+        if (fetchError) {
+          if (fetchError.code === 'PGRST116') {
+            // User doesn't exist in Supabase yet - this should be handled by sync
+            console.log('User not yet synced to Supabase, waiting...');
+            setError('User profile being created...');
+          } else {
+            console.error('Error fetching Supabase user:', fetchError);
+            setError(fetchError.message);
+          }
+          setSupabaseUser(null);
+        } else {
+          setSupabaseUser(data);
+          setError(null);
         }
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-        userProfileCache.clear();
+      } catch (err) {
+        console.error('Error fetching Supabase user:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch user');
+        setSupabaseUser(null);
+      } finally {
         setLoading(false);
-      } else if (event === 'USER_UPDATED' && newSession?.user) {
-        const userProfile = await fetchUserProfile(newSession.user.id, true);
-        setUser(userProfile);
-      } else if (event === 'TOKEN_REFRESHED') {
-        console.log('Token refreshed');
+      }
+    };
+
+    fetchSupabaseUser();
+  }, [isAuthenticated, auth0User]);
+
+  // Create a session object for backward compatibility
+  const session = useMemo(() => {
+    if (!isAuthenticated || !auth0User) return null;
+    
+    return {
+      user: {
+        id: auth0User.sub || '',
+        email: auth0User.email || '',
+        email_verified: auth0User.email_verified,
+        user_metadata: auth0User,
+      },
+      access_token: '', // Will be fetched when needed
+    };
+  }, [isAuthenticated, auth0User]);
+
+  // Logout function
+  const logout = () => {
+    auth0Logout({
+      logoutParams: {
+        returnTo: window.location.origin
       }
     });
+  };
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [initialized]);
-
-  const wrappedSignUp = useCallback(async (email: string, password: string, username: string, full_name: string, referralCode?: string) => {
-    setLoading(true);
-    try {
-      const result = await signUp(email, password, username, full_name, referralCode);
-      if (result.data?.user) {
-        const userProfile = await fetchUserProfile(result.data.user.id);
-        setUser(userProfile);
-        
-        // Sync FCM token when user signs up
-        console.log('🔄 User signed up, syncing FCM token...');
-        syncTokenWhenUserLogsIn(result.data.user.id).catch(error => {
-          console.error('Background FCM token sync failed:', error);
-        });
+  // Sign in function (redirects to Auth0)
+  const signIn = async (email: string, password?: string) => {
+    await loginWithRedirect({
+      authorizationParams: {
+        redirect_uri: window.location.origin + '/auth',
+        login_hint: email
       }
-      return result;
-    } finally {
-      setLoading(false);
-    }
-  }, [syncTokenWhenUserLogsIn]);
+    });
+  };
 
-  const wrappedSignIn = useCallback(async (email: string, password: string) => {
-    setLoading(true);
-    try {
-      const result = await signIn(email, password);
-      if (result.data?.user) {
-        // Sync FCM token when user signs in
-        console.log('🔄 User signed in via wrappedSignIn, syncing FCM token...');
-        syncTokenWhenUserLogsIn(result.data.user.id).catch(error => {
-          console.error('Background FCM token sync failed:', error);
-        });
+  // Sign up function (redirects to Auth0)
+  const signUp = async (email: string, password?: string) => {
+    await loginWithRedirect({
+      authorizationParams: {
+        redirect_uri: window.location.origin + '/auth',
+        screen_hint: 'signup',
+        login_hint: email
       }
-      return result;
-    } finally {
-      setLoading(false);
-    }
-  }, [syncTokenWhenUserLogsIn]);
+    });
+  };
 
-  const wrappedSignOut = useCallback(async () => {
-    setLoading(true);
+  // Get access token
+  const getAccessToken = async () => {
     try {
-      await signOut();
-      setUser(null);
-      setSession(null);
-    } finally {
-      setLoading(false);
+      return await getAccessTokenSilently();
+    } catch (error) {
+      console.error('Error getting access token:', error);
+      return null;
     }
-  }, []);
-
-  const wrappedUpdateUser = useCallback(async (updatedFields: Partial<User>) => {
-    if (!user) return { data: null, error: new Error('No user logged in') };
-    
-    setLoading(true);
-    try {
-      const result = await updateUser(user, updatedFields);
-      if (result.data) {
-        setUser(result.data);
-      }
-      return result;
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
-
-  const wrappedRefreshUser = useCallback(() => {
-    if (session?.user) {
-      return fetchUserProfile(session.user.id, true).then(user => {
-        setUser(user);
-        return user;
-      });
-    }
-    return Promise.resolve(null);
-  }, [session?.user]);
+  };
 
   return {
+    // Auth0 data
     session,
-    user,
-    loading,
-    initialized,
-    signUp: wrappedSignUp,
-    signIn: wrappedSignIn,
-    signOut: wrappedSignOut,
-    refreshUser: wrappedRefreshUser,
-    updateUser: wrappedUpdateUser,
-    getUserByUsername,
-    isValidSchoolEmail,
-    isUsernameAvailable
+    isAuthenticated,
+    auth0User,
+    
+    // Supabase user data (for backward compatibility)
+    user: supabaseUser,
+    
+    // Loading states
+    loading: auth0Loading || loading,
+    error,
+    
+    // Auth methods
+    signIn,
+    signUp,
+    logout,
+    getAccessToken,
+    loginWithRedirect,
   };
 }

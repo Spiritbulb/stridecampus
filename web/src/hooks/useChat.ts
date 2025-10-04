@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/utils/supabaseClient';
 import { NotificationService } from '@/utils/notificationService';
+import { useSupabaseUser } from './useSupabaseUser';
 
 export interface ChatParticipant {
   user_id: string;
@@ -50,7 +51,8 @@ export interface User {
 }
 
 export const useChat = () => {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+  const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
@@ -59,7 +61,7 @@ export const useChat = () => {
 
   // Fetch user's chats
   const fetchChats = async () => {
-    if (!user) return;
+    if (!user || !appUser) return;
 
     setLoading(true);
     try {
@@ -75,7 +77,7 @@ export const useChat = () => {
             last_message_at
           )
         `)
-        .eq('user_id', user.id)
+        .eq('user_id', user?.id)
         .eq('is_active', true);
 
       if (error) throw error;
@@ -97,7 +99,7 @@ export const useChat = () => {
           .select('*', { count: 'exact', head: true })
           .eq('chat_id', item.chat_id)
           .eq('read_by_receiver', false)
-          .neq('sender_id', user.id);
+          .neq('sender_id', user?.id);
 
         return {
           ...item.chats,
@@ -117,7 +119,7 @@ export const useChat = () => {
 
   // Fetch messages for a chat
   const fetchMessages = async (chatId: string) => {
-    if (!user) return;
+    if (!user || !appUser) return;
 
     setLoading(true);
     try {
@@ -138,7 +140,7 @@ export const useChat = () => {
         .from('messages')
         .update({ read_by_receiver: true })
         .eq('chat_id', chatId)
-        .neq('sender_id', user.id)
+        .neq('sender_id', user?.id)
         .eq('read_by_receiver', false);
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -149,7 +151,7 @@ export const useChat = () => {
 
   // Send a message
   const sendMessage = async (chatId: string, message: string) => {
-    if (!user) return;
+    if (!user || !appUser) return;
 
     try {
       const { data, error } = await supabase
@@ -157,7 +159,7 @@ export const useChat = () => {
         .insert([
           {
             chat_id: chatId,
-            sender_id: user.id,
+            sender_id: user?.id,
             message: message,
             message_type: 'text'
           }
@@ -193,18 +195,18 @@ export const useChat = () => {
         if (chatData?.participants) {
           // Find recipients (all participants except sender)
           const recipients = chatData.participants
-            .filter((p: any) => p.user_id !== user.id)
+            .filter((p: any) => p.user_id !== user?.id)
             .map((p: any) => p.users);
 
           // Send notifications to recipients using the new notification service
           for (const recipient of recipients) {
             if (recipient?.push_notifications) {
               const messagePreview = message.length > 50 ? message.substring(0, 50) + '...' : message;
-              const senderName = user.full_name || user.username || 'Someone';
+              const senderName = user?.full_name || user?.username || 'Someone';
               
               await NotificationService.sendMessageNotification(
                 recipient.id,
-                user.id,
+                user?.id,
                 senderName,
                 messagePreview
               );
@@ -230,14 +232,14 @@ export const useChat = () => {
 
   // Start a new chat
   const startChat = async (otherUserId: string) => {
-    if (!user) return;
+    if (!user || !appUser) return;
 
     try {
       // Check if chat already exists by getting all chats for both users
       const { data: userChats } = await supabase
         .from('chat_participants')
         .select('chat_id')
-        .eq('user_id', user.id);
+        .eq('user_id', user?.id);
 
       const { data: otherUserChats } = await supabase
         .from('chat_participants')
@@ -304,7 +306,7 @@ export const useChat = () => {
 
   // Check if users follow each other
   const checkMutualFollow = async (otherUserId: string) => {
-    if (!user) return false;
+    if (!user || !appUser) return false;
 
     try {
       const { data, error } = await supabase
@@ -320,8 +322,8 @@ export const useChat = () => {
       if (!data || data.length === 0) return false;
 
       // Check if both follow each other
-      const userFollows = data.some(f => f.follower_id === user.id && f.followed_id === otherUserId);
-      const otherUserFollows = data.some(f => f.follower_id === otherUserId && f.followed_id === user.id);
+      const userFollows = data.some(f => f.follower_id === user?.id && f.followed_id === otherUserId);
+      const otherUserFollows = data.some(f => f.follower_id === otherUserId && f.followed_id === user?.id);
 
       return userFollows && otherUserFollows;
     } catch (error) {

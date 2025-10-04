@@ -17,6 +17,7 @@ import TabNavigation from '@/components/spaces/TabNavigation';
 import PostsTab from '@/components/spaces/PostsTab';
 import MarketplaceTab from '@/components/spaces/MarketplaceTab';
 import CreateListingModal from '@/components/spaces/CreateListingModal';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 interface MarketplaceListing {
   id: number;
@@ -36,7 +37,8 @@ type TabType = 'posts' | 'marketplace' | 'members' | 'settings';
 export default function SpacePage() {
   const params = useParams();
   const slug = params.slug as string;
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const { toast } = useToast();
   const [sortBy, setSortBy] = useState<'new' | 'hot'>('new');
   const [showCreateModal, setShowCreateModal] = useState(false);

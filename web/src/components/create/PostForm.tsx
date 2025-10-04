@@ -11,6 +11,7 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { useApp } from '@/contexts/AppContext';
 import ResourceSelector from '@/components/feed/ResourceSelector';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 interface PostFormProps {
   spaces: Space[];
@@ -37,7 +38,8 @@ export default function PostForm({
   onSuccess, 
   onCreateSpace 
 }: PostFormProps) {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSpaceDropdown, setShowSpaceDropdown] = useState(false);
@@ -209,7 +211,7 @@ export default function PostForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user) {
+    if (!user || !appUser) {
       toast({
         title: 'Authentication required',
         description: 'Please sign in to create a post',

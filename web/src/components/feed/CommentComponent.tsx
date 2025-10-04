@@ -15,6 +15,7 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { useApp } from '@/contexts/AppContext';
 import { useRealtimeVoting } from '@/hooks/useRealtimeVoting';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 interface CommentComponentProps {
   comment: Comment;
@@ -46,7 +47,8 @@ export default function CommentComponent({
   onCommentAdded, 
   depth = 0 
 }: CommentComponentProps) {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const [isReplying, setIsReplying] = useState(false);
   const [replyContent, setReplyContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,7 +58,7 @@ export default function CommentComponent({
   const [isLiked, setIsLiked] = useState(comment.user_vote === 1);
   const [likeCount, setLikeCount] = useState(comment.vote_count || 0);
 
-  const isOwner = user && comment.author_id === user.id;
+  const isOwner = user && comment.author_id === user?.id;
 
   // Fetch accurate vote count on mount
   useEffect(() => {
@@ -113,7 +115,7 @@ export default function CommentComponent({
   });
 
   const handleLike = async () => {
-    if (!user) {
+    if (!user || !appUser) {
       toast({
         title: 'Authentication required',
         description: 'Please sign in to like',
@@ -135,7 +137,7 @@ export default function CommentComponent({
         .from('comment_votes')
         .select('id')
         .eq('comment_id', comment.id)
-        .eq('user_id', user.id)
+        .eq('user_id', user?.id)
         .single();
 
       if (existingVote) {
@@ -150,7 +152,7 @@ export default function CommentComponent({
           .from('comment_votes')
           .insert({
             comment_id: comment.id,
-            user_id: user.id,
+            user_id: user?.id,
             vote_type: 1
           });
         
@@ -194,7 +196,7 @@ export default function CommentComponent({
         .insert({
           content: replyContent,
           post_id: postId,
-          author_id: user.id,
+          author_id: user?.id,
           parent_id: comment.id
         })
         .select(`
@@ -217,7 +219,7 @@ export default function CommentComponent({
         .from('comment_votes')
         .select('vote_type')
         .eq('comment_id', reply.id)
-        .eq('user_id', user.id)
+        .eq('user_id', user?.id)
         .single();
 
       const processedReply = {

@@ -2,6 +2,7 @@
 import { useEffect, useCallback, useState } from 'react';
 import { supabase, type PostVote, type CommentVote } from '@/utils/supabaseClient';
 import { useApp } from '@/contexts/AppContext';
+import { useSupabaseUser } from './useSupabaseUser';
 
 interface VoteUpdate {
   id: string;
@@ -19,7 +20,8 @@ interface RealtimeVotingOptions {
 }
 
 export function useRealtimeVoting(options: RealtimeVotingOptions = {}) {
-  const { user } = useApp();
+  const { user: appUser } = useApp();
+  const { user, loading: userLoading } = useSupabaseUser(appUser?.email || null);
   const { postId, commentId, onVoteUpdate } = options;
   const [isConnected, setIsConnected] = useState(false);
   const [voteUpdates, setVoteUpdates] = useState<VoteUpdate[]>([]);
